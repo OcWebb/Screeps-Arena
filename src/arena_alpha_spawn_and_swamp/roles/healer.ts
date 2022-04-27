@@ -45,7 +45,7 @@ export class Healer extends Creep implements ICreepRole
         {
             // set costmatrix to prefer near squadmates
             this.creep.rangedHeal(creepToHeal);
-            this.creep.moveTo(creepToHeal);
+            // this.creep.moveTo(creepToHeal);
             return;
         }
 
@@ -56,11 +56,11 @@ export class Healer extends Creep implements ICreepRole
         }
 
 
-        let furthestFriendly = this.enemySpawn.findClosestByRange(myCreeps);
-        if (furthestFriendly)
-        {
-            this.creep.moveTo(furthestFriendly);
-        }
+        // let furthestFriendly = this.enemySpawn.findClosestByRange(myCreeps);
+        // if (furthestFriendly)
+        // {
+        //     this.creep.moveTo(furthestFriendly);
+        // }
     }
 
     refreshMemory ()
