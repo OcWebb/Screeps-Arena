@@ -1,8 +1,10 @@
-import { ATTACK, HEAL, RANGED_ATTACK, ERR_NOT_IN_RANGE } from "game/constants";
+import { ATTACK, HEAL, RANGED_ATTACK, ERR_NOT_IN_RANGE, HEAL_POWER, ATTACK_POWER } from "game/constants";
 import { Creep, GameObject, Structure, RoomPosition } from "game/prototypes";
-import { getObjectsByPrototype, findInRange, findClosestByPath, getTicks } from "game/utils"
-import { searchPath } from "game/path-finder"
-import { Role, RoleName } from "./types"
+import { getObjectsByPrototype, findInRange, findClosestByPath, getTicks, getRange } from "game/utils"
+import { CostMatrix, searchPath } from "game/path-finder"
+import { Visual } from "game/visual"
+import { Role, RoleName } from "../types"
+import { RangedAttacker } from "../roles/RangedAttacker";
 
 export class Squad
 {
@@ -14,6 +16,16 @@ export class Squad
     composition: RoleName[];
     filled: boolean;
 
+    color: string;
+    colors: string[] = ["#ff0000", "#00e5ff", "#fff600", "#ffa100", "#9400ff", "#0019ff", "#e05df4"]
+
+    dps: number;
+    hps: number;
+
+    costMatrix: CostMatrix = new CostMatrix();
+
+    static colorsInUse: string[] = [];
+
     constructor (size: number, composition: RoleName[])
     {
         this.id = getTicks();
@@ -22,31 +34,119 @@ export class Squad
         this.filled = false;
         this.composition = composition;
         this.creeps = [];
+
+        let randomColorIdx = Math.floor(Math.random() * this.colors.length);
+        let curColor = this.colors[randomColorIdx];
+        let m = 0;
+        while (Squad.colorsInUse.includes(curColor) && m++ < 12)
+        {
+            randomColorIdx = Math.floor(Math.random() * this.colors.length);
+            curColor = this.colors[randomColorIdx];
+        }
+
+        this.color = curColor;
+        Squad.colorsInUse.push(curColor);
+
+        this.dps = 0;
+        this.hps = 0;
+
+        this.updateCostMatrix();
     }
 
     run()
     {
-        // this.creeps = getObjectsByPrototype(Creep).filter(c => c.my && c.squadId == this.id) as RoleAttacker;
+        this.updateCostMatrix();
+        let enemies = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+        // pick target
 
-        if (this.creeps.length >= this.size)
+        for (let roleCreep of this.creeps)
         {
-            this.filled = true;
+            roleCreep.run();
+            // switch (roleCreep.role)
+            // {
+            //     case "RANGED_ATTACKER":
+            //         let rangedAttacker = roleCreep as RangedAttacker;
+            // }
         }
+
     }
 
-    getNextToSpawn()
+
+    addCreep(roleCreep: Role)
     {
-        // for (let role of Object.keys(this.composition))
-        // {
-        //     let creepsWithThisRole = this.creeps.filter(creep => creep.role == role).length;
-        //     if (creepsWithThisRole < this.composition[role])
-        //     {
-        //         return role;
-        //     }
-        // }
+        if (this.isFull())
+        {
+            return false;
+        }
+
+        this.creeps.push(roleCreep);
+        roleCreep.squadId = this.id;
+        this.updateStats();
+
+        return true;
     }
 
-    squadMove(target: GameObject)
+    updateStats()
+    {
+        let damageOutput: number = 0;
+        let healOutput: number = 0;
+        for (let roleCreep of this.creeps)
+        {
+            if (!roleCreep.creep.exists) { continue; }
+
+            // console.log(`${roleCreep.role}: ${JSON.stringify(roleCreep.creep.body)}`)
+            for (let bodyPart of roleCreep.creep.body)
+            {
+                damageOutput +=
+                    bodyPart.type == RANGED_ATTACK ? 10 :
+                    bodyPart.type == ATTACK ? ATTACK_POWER : 0;
+
+                healOutput += bodyPart.type == HEAL ? HEAL_POWER : 0;
+            }
+
+        }
+        this.dps = damageOutput;
+        this.hps = healOutput;
+    }
+
+    updateCostMatrix()
+    {
+        let cm = new CostMatrix();
+        let structures = getObjectsByPrototype(Structure).filter(s => s.exists);
+        structures.forEach(structure => cm.set(structure.x, structure.y, 255));
+
+        let enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+        enemyCreeps.forEach(creep => cm.set(creep.x, creep.y, 255));
+
+        this.costMatrix = cm;
+    }
+
+    isFull()
+    {
+        let creepsNeeded = this.getNeededCreeps();
+        this.filled = !creepsNeeded.length;
+        return this.filled;
+    }
+
+    getNeededCreeps()
+    {
+        let expectedComposition = this.composition.slice(0);
+        this.creeps.forEach(creep =>
+        {
+            //creep.role
+            expectedComposition.forEach((roleName, idx) =>
+            {
+                if (roleName == creep.role)
+                {
+                    expectedComposition.splice(idx, 1);
+                }
+            })
+        });
+
+        return expectedComposition;
+    }
+
+    squadMove(target: RoomPosition)
     {
         let closestCreepToTarget = findClosestByPath(target, this.creeps);
         let creepsThatNeedToCatchUp = [];
@@ -80,7 +180,7 @@ export class Squad
     squadAttack(target: Creep | Structure)
     {
         let enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
-        let rangedCreeps = this.creeps.filter(creep => creep.body.some(p => p.type == RANGED_ATTACK));
+        let rangedCreeps = this.creeps.filter(creep => creep.role === "RANGED_ATTACKER") as RangedAttacker[];
         let meleeCreeps = this.creeps.filter(creep => creep.body.some(p => p.type == ATTACK));
         let healerCreeps = this.creeps.filter(creep => creep.body.some(p => p.type == HEAL));
 
@@ -171,5 +271,38 @@ export class Squad
                 }
             }
         }
+    }
+
+    visualize()
+    {
+        for (let roleCreep of this.creeps)
+        {
+            let creep = roleCreep.creep;
+            if (!creep.exists) { continue; }
+
+            let vis = new Visual(0, false);
+            vis.circle(
+                { 'x': creep.x, 'y': creep.y + 0.75 },
+                {
+                    opacity: .9,
+                    radius: 0.3,
+                    fill: this.color
+                }
+            );
+
+            vis.text(
+                this.id.toString(),
+                { 'x': creep.x, 'y': creep.y + 0.85 },
+                {
+                    font: 0.2,
+                    opacity: 1,
+                }
+            );
+        }
+    }
+
+    logState()
+    {
+        console.log(`Squad ${this.id} - DPS: ${this.dps} | HPS: ${this.hps} | Target Composition ${this.composition} | RolesNeeded: ${this.getNeededCreeps()}\n`);
     }
 }

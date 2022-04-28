@@ -17,7 +17,7 @@ export class RangedAttacker extends Creep implements ICreepRole
 
     constructor(creep: Creep, squadId: number = -1)
     {
-        super();
+        super(creep.id);
         this.creep = creep;
         this.role = "RANGED_ATTACKER";
         this.squadId = squadId;
@@ -32,27 +32,6 @@ export class RangedAttacker extends Creep implements ICreepRole
         if (!this.creep.exists) { return; }
 
         this.refreshMemory();
-
-        let enemies = getObjectsByPrototype(Creep).filter(creep => !creep.my);
-
-        let target = null;
-        if (enemies.length)
-        {
-
-            target = findClosestByPath(this.creep, enemies);
-            if (getRange(this.creep, target) > 3)
-            {
-                this.creep.moveTo(target)
-            }
-            this.engageEnemies();
-        }
-        else if (this.enemySpawn)
-        {
-            if (this.creep.rangedAttack(this.enemySpawn) == ERR_NOT_IN_RANGE)
-            {
-                this.creep.moveTo(this.enemySpawn);
-            }
-        }
     }
 
     refreshMemory ()
@@ -84,7 +63,7 @@ export class RangedAttacker extends Creep implements ICreepRole
         let goals: { pos: RoomPosition; range: number; }[] = [];
         enemies.forEach(creep => goals.push({ "pos": creep, "range": range }));
         let healers = getObjectsByPrototype(Creep).filter(creep => creep.my)
-            .filter(creep => creep.body.some(bodyPart => bodyPart.type = HEAL))2;
+            .filter(creep => creep.body.some(bodyPart => bodyPart.type = HEAL));
         let closestHealer = findClosestByPath(this.creep, healers);
 
         let fleePath = searchPath(this.creep, goals, {flee: true});
@@ -151,7 +130,7 @@ export class RangedAttacker extends Creep implements ICreepRole
         }
         else if (melee)
         {
-            return ranged;
+            return melee;
         }
 
         return findClosestByPath(this.creep, enemies);

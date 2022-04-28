@@ -38,29 +38,13 @@ export class Healer extends Creep implements ICreepRole
 
         let lowSquadCreeps = myCreeps.filter(i => i.my && i.hits < i.hitsMax);
         let creepToHeal = this.creep.findClosestByRange(lowSquadCreeps);
-        let enemiesTooClose = findInRange(this.creep, this.enemyCreeps, 3);
-        // count enemies in range and use ranged
 
+        // console.log(`${this.creep.id} healing ${creepToHeal?.id}`);
         if (creepToHeal && this.creep.heal(creepToHeal) == ERR_NOT_IN_RANGE)
         {
-            // set costmatrix to prefer near squadmates
             this.creep.rangedHeal(creepToHeal);
-            // this.creep.moveTo(creepToHeal);
             return;
         }
-
-        if (enemiesTooClose.length)
-        {
-            this.retreat(enemiesTooClose);
-            return;
-        }
-
-
-        // let furthestFriendly = this.enemySpawn.findClosestByRange(myCreeps);
-        // if (furthestFriendly)
-        // {
-        //     this.creep.moveTo(furthestFriendly);
-        // }
     }
 
     refreshMemory ()

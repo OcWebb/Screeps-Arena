@@ -2,7 +2,8 @@ import { ATTACK, HEAL, RANGED_ATTACK, MOVE, CARRY, ERR_NOT_IN_RANGE, BODYPART_CO
 import { Creep, GameObject, StructureContainer, StructureSpawn } from "game/prototypes";
 import { getObjectsByPrototype, findInRange, findClosestByPath, getRange, getTicks, findClosestByRange } from "game/utils"
 import { RoleName, Role } from "./types";
-import { Squad } from "./squad.js";
+import { Squad } from "./squads/squad";
+import { DuoSquad } from "./squads/duoSquad";
 import { Transporter } from "./roles/transporter";
 import { MeleeAttacker } from "./roles/meleeAttacker";
 import { RangedAttacker } from "./roles/RangedAttacker";
@@ -14,8 +15,8 @@ const ROLE_PARTS: { [key in RoleName]: BodyPartConstant[] } =
 {
     "TRANSPORTER": [CARRY, MOVE, MOVE],
     "MELEE_ATTACKER": [ATTACK, MOVE, MOVE, MOVE, MOVE, MOVE],
-    "RANGED_ATTACKER": [MOVE, MOVE, MOVE, RANGED_ATTACK],
-    "HEALER": [MOVE, MOVE, MOVE, HEAL],
+    "RANGED_ATTACKER": [MOVE, MOVE, MOVE, MOVE, MOVE, RANGED_ATTACK],
+    "HEALER": [MOVE, MOVE, MOVE, MOVE, MOVE, HEAL],
 }
 
 const SQUAD_COMPOSITION : { [key in RoleName]?: number } =
@@ -36,7 +37,7 @@ var population: { [key in RoleName]: Creep[] } =
     "HEALER": [],
 }
 
-export var squads: Squad[] = [];
+export var squads: DuoSquad[] = [];
 
 var transporters: Transporter[] = [];
 var meleeAttackers: MeleeAttacker[] = [];
@@ -57,83 +58,45 @@ export function loop()
         creep.run();
     }
 
-    for (let creep of meleeAttackers)
+    for (let squad of squads)
     {
-        creep.run();
+        squad.visualize();
+        squad.logState();
+        squad.run();
+
+        // if (squad.filled)
+        // {
+        //     let enemiesNearSpawn = findInRange(spawn, enemyCreeps, 35);
+        //     if (enemyCreeps.length)
+        //     {
+        //         let closestEnemy = findClosestByPath(squad.creeps[0].creep, enemyCreeps);
+        //         // console.log(squad.creeps[0]);
+        //         if (getRange(squad.creeps[0].creep, closestEnemy) > 3)
+        //         {
+        //             // squad.squadMove(closestEnemy);
+        //         }
+        //     }
+        //     else
+        //     {
+        //         // squad.squadMove(enemySpawn);
+        //     }
+        // }
+        // else
+        // {
+        //     let enemiesNearSpawn = findInRange(spawn, enemyCreeps, 10);
+        //     if (enemiesNearSpawn.length)
+        //     {
+        //         let target = findClosestByRange(spawn, enemyCreeps);
+        //         for (let creep of squad.creeps)
+        //         {
+        //             if (creep.rangedAttack(target) == ERR_NOT_IN_RANGE)
+        //             {
+        //                 creep.moveTo(target);
+        //             }
+        //         }
+        //     }
+        // }
     }
-
-    for (let creep of rangedAttackers)
-    {
-        creep.run();
-    }
-
-    for (let creep of healers)
-    {
-        creep.run();
-    }
-
-    // for (let squad of squads)
-    // {
-    //     if (squad.filled)
-    //     {
-    //         let enemiesNearSpawn = findInRange(spawn, enemyCreeps, 35);
-    //         console.log(enemiesNearSpawn.length)
-    //         if (getTicks() < 1000)
-    //         {
-    //             if (enemiesNearSpawn.length)
-    //             {
-    //                 let closestEnemy = findClosestByPath(spawn, enemyCreeps);
-    //                 console.log(closestEnemy);
-    //                 if (closestEnemy)
-    //                 {
-    //                     squad.squadAttack(closestEnemy);
-    //                     squad.squadMove(closestEnemy);
-    //                 }
-
-    //             } else {
-    //                 squad.squadMove(spawn);
-    //             }
-    //             continue;
-    //         }
-
-    //         if (enemyCreeps.length)
-    //         {
-    //             let closestEnemy = findClosestByPath(squad.creeps[0], enemyCreeps);
-    //             if (getRange(squad.creeps[0], closestEnemy) <= 3)
-    //             {
-    //                 squad.squadAttack(closestEnemy);
-    //             } else {
-    //                 squad.squadMove(closestEnemy);
-    //             }
-    //         }
-    //         else
-    //         {
-    //             if (getRange(squad.creeps[0], enemySpawn) <= 3)
-    //             {
-    //                 squad.squadAttack(enemySpawn);
-    //             }
-    //             else
-    //             {
-    //                 squad.squadMove(enemySpawn)
-    //             }
-    //         }
-    //     }
-    //     else
-    //     {
-    //         let enemiesNearSpawn = findInRange(spawn, enemyCreeps, 10);
-    //         if (enemiesNearSpawn.length)
-    //         {
-    //             let target = findClosestByRange(spawn, enemyCreeps);
-    //             for (let creep of squad.creeps)
-    //             {
-    //                 if (creep.attack(target) == ERR_NOT_IN_RANGE)
-    //                 {
-    //                     creep.moveTo(target);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
 }
 
 function initMemory()
@@ -185,20 +148,26 @@ function manageSpawning()
     }
     else if ((spawn.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0) >= 900)
     {
-        if (rangedAttackers.length > healers.length)
+        for (let squad of squads)
         {
-            spawnRoleCreep("HEALER");
+            if (!squad.isFull())
+            {
+                let rolesNeedeed = squad.getNeededCreeps();
+                spawnRoleCreep(rolesNeedeed[0], squad);
+                return;
+            }
         }
-        else
-        {
-            spawnRoleCreep("RANGED_ATTACKER");
-        }
+        let squad = new DuoSquad(["RANGED_ATTACKER", "RANGED_ATTACKER", "HEALER"]);
+        squads.push(squad);
 
-        return;
+        console.log(`Creating Squad ${squad.id}, composition ${squad.composition}`);
+
+        let rolesNeedeed = squad.getNeededCreeps();
+        spawnRoleCreep(rolesNeedeed[0], squad);
     }
 }
 
-function spawnRoleCreep (role: RoleName): boolean
+function spawnRoleCreep (role: RoleName, squad?: Squad): boolean
 {
     let creepParts = getCreepParts(spawn.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0, ROLE_PARTS[role]);
     let spawnedCreep = spawn.spawnCreep(creepParts);
@@ -209,16 +178,27 @@ function spawnRoleCreep (role: RoleName): boolean
         switch (role)
         {
             case "TRANSPORTER":
-                transporters.push(new Transporter(creep));
+                let transporter = new Transporter(creep);
+                if (squad) { squad.addCreep(transporter) }
+                transporters.push(transporter);
                 break;
+
             case "MELEE_ATTACKER":
-                meleeAttackers.push(new MeleeAttacker(creep));
+                let meleeAttacker = new MeleeAttacker(creep);
+                if (squad) { squad.addCreep(meleeAttacker) }
+                meleeAttackers.push(meleeAttacker);
                 break;
+
             case "RANGED_ATTACKER":
-                rangedAttackers.push(new RangedAttacker(creep));
+                let rangedAttacker = new RangedAttacker(creep);
+                if (squad) { squad.addCreep(rangedAttacker) }
+                rangedAttackers.push(rangedAttacker);
                 break;
+
             case "HEALER":
-                healers.push(new Healer(creep));
+                let healer = new Healer(creep);
+                if (squad) { squad.addCreep(healer) }
+                healers.push(healer);
                 break;
         }
 
