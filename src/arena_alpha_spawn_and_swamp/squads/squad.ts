@@ -12,7 +12,7 @@ export class Squad
     id: number;
     size: number;
     spread: number;
-    creeps: Role[];
+    roleCreeps: Role[];
     composition: RoleName[];
     filled: boolean;
 
@@ -33,7 +33,7 @@ export class Squad
         this.spread = 1;
         this.filled = false;
         this.composition = composition;
-        this.creeps = [];
+        this.roleCreeps = [];
 
         let randomColorIdx = Math.floor(Math.random() * this.colors.length);
         let curColor = this.colors[randomColorIdx];
@@ -56,10 +56,11 @@ export class Squad
     run()
     {
         this.updateCostMatrix();
+        this.updateStats();
         let enemies = getObjectsByPrototype(Creep).filter(creep => !creep.my);
         // pick target
 
-        for (let roleCreep of this.creeps)
+        for (let roleCreep of this.roleCreeps)
         {
             roleCreep.run();
             // switch (roleCreep.role)
@@ -79,7 +80,7 @@ export class Squad
             return false;
         }
 
-        this.creeps.push(roleCreep);
+        this.roleCreeps.push(roleCreep);
         roleCreep.squadId = this.id;
         this.updateStats();
 
@@ -90,7 +91,7 @@ export class Squad
     {
         let damageOutput: number = 0;
         let healOutput: number = 0;
-        for (let roleCreep of this.creeps)
+        for (let roleCreep of this.roleCreeps)
         {
             if (!roleCreep.creep.exists) { continue; }
 
@@ -131,7 +132,7 @@ export class Squad
     getNeededCreeps()
     {
         let expectedComposition = this.composition.slice(0);
-        this.creeps.forEach(creep =>
+        this.roleCreeps.forEach(creep =>
         {
             //creep.role
             expectedComposition.forEach((roleName, idx) =>
@@ -148,11 +149,11 @@ export class Squad
 
     squadMove(target: RoomPosition)
     {
-        let closestCreepToTarget = findClosestByPath(target, this.creeps);
+        let closestCreepToTarget = findClosestByPath(target, this.roleCreeps);
         let creepsThatNeedToCatchUp = [];
-        for (let squadMember of this.creeps)
+        for (let squadMember of this.roleCreeps)
         {
-            let squadIsInRange = findInRange(squadMember, this.creeps, this.spread);
+            let squadIsInRange = findInRange(squadMember, this.roleCreeps, this.spread);
             // console.log(squadMember.id + " in range? " + squadIsInRange.length)
             if (squadIsInRange.length <= 1 && squadMember.id != closestCreepToTarget.id)
             {
@@ -169,7 +170,7 @@ export class Squad
         }
         else
         {
-            for (let squadMember of this.creeps)
+            for (let squadMember of this.roleCreeps)
             {
                 // set costmatrix to prefer near squadmates, save every tick
                 squadMember.moveTo(target);
@@ -180,9 +181,9 @@ export class Squad
     squadAttack(target: Creep | Structure)
     {
         let enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
-        let rangedCreeps = this.creeps.filter(creep => creep.role === "RANGED_ATTACKER") as RangedAttacker[];
-        let meleeCreeps = this.creeps.filter(creep => creep.body.some(p => p.type == ATTACK));
-        let healerCreeps = this.creeps.filter(creep => creep.body.some(p => p.type == HEAL));
+        let rangedCreeps = this.roleCreeps.filter(creep => creep.role === "RANGED_ATTACKER") as RangedAttacker[];
+        let meleeCreeps = this.roleCreeps.filter(creep => creep.body.some(p => p.type == ATTACK));
+        let healerCreeps = this.roleCreeps.filter(creep => creep.body.some(p => p.type == HEAL));
 
         let enemyRangedPartCount = 0;
         let enemyAttackPartCount = 0;
@@ -245,7 +246,7 @@ export class Squad
         {
             for (let creep of healerCreeps)
             {
-                let lowSquadCreeps = this.creeps.filter(i => i.my && i.hits < i.hitsMax);
+                let lowSquadCreeps = this.roleCreeps.filter(i => i.my && i.hits < i.hitsMax);
                 let creepToHeal = creep.findClosestByRange(lowSquadCreeps);
                 let enemiesTooClose = findInRange(creep, enemyCreeps, 2);
                 // count enemies in range and use ranged
@@ -275,14 +276,14 @@ export class Squad
 
     visualize()
     {
-        for (let roleCreep of this.creeps)
+        for (let roleCreep of this.roleCreeps)
         {
             let creep = roleCreep.creep;
-            if (!creep.exists) { continue; }
+            if (!creep.exists || !roleCreep.nextPosition) { continue; }
 
-            let vis = new Visual(0, false);
+            let vis = new Visual(9, false);
             vis.circle(
-                { 'x': creep.x, 'y': creep.y + 0.75 },
+                { 'x': roleCreep.nextPosition.x, 'y': roleCreep.nextPosition.y },
                 {
                     opacity: .9,
                     radius: 0.3,
@@ -292,7 +293,7 @@ export class Squad
 
             vis.text(
                 this.id.toString(),
-                { 'x': creep.x, 'y': creep.y + 0.85 },
+                { 'x': roleCreep.nextPosition.x, 'y': roleCreep.nextPosition.y + 0.15 },
                 {
                     font: 0.2,
                     opacity: 1,

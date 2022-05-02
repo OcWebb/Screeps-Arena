@@ -58,11 +58,13 @@ export function loop()
         creep.run();
     }
 
+
     for (let squad of squads)
     {
-        squad.visualize();
         squad.logState();
         squad.run();
+        squad.visualize();
+        // squads[0]?.visualizeCostMatrix();
 
         // if (squad.filled)
         // {

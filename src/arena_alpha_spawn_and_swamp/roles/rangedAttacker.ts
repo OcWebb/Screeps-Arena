@@ -1,15 +1,17 @@
 import { Creep, StructureSpawn, RoomPosition } from "game/prototypes";
 import { getObjectsByPrototype, findClosestByPath, findInRange, getRange, findClosestByRange } from "game/utils"
-import { ERR_NOT_IN_RANGE, RANGED_ATTACK, ATTACK, HEAL } from "game/constants"
+import { ERR_NOT_IN_RANGE, RANGED_ATTACK, ATTACK, HEAL, BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT, DirectionConstant, LEFT, OK, RIGHT, TOP, TOP_LEFT, TOP_RIGHT } from "game/constants"
 import { searchPath } from "game/path-finder"
 import { Visual } from "game/visual"
 import { RoleName, ICreepRole } from "../types";
+import { utils } from "utils/Utils"
 
 export class RangedAttacker extends Creep implements ICreepRole
 {
     creep: Creep;
     role: RoleName;
     squadId: number;
+    nextPosition: RoomPosition;
 
     mySpawn: StructureSpawn;
     enemySpawn: StructureSpawn;
@@ -25,6 +27,7 @@ export class RangedAttacker extends Creep implements ICreepRole
         this.mySpawn = getObjectsByPrototype(StructureSpawn).filter(s => s.my)[0];
         this.enemySpawn = getObjectsByPrototype(StructureSpawn).filter(s => !s.my)[0];
         this.enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+        this.nextPosition = { x: creep.x, y: creep.y };
     }
 
     run ()
@@ -37,6 +40,33 @@ export class RangedAttacker extends Creep implements ICreepRole
     refreshMemory ()
     {
         this.enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+        // this.nextPosition = { x: this.creep.x, y: this.creep.y };
+    }
+
+    roleMoveTo(position: RoomPosition)
+    {
+        let ret = this.creep.moveTo(position);
+
+        if (ret == OK)
+        {
+            this.nextPosition = position;
+        }
+
+        return ret;
+    }
+
+    roleMove(direction: DirectionConstant)
+    {
+        if (!this.creep.exists) { return; }
+
+        let ret = this.creep.move(direction);
+
+        if (ret == OK)
+        {
+            this.nextPosition = utils.getPositionFromDirection(this.creep, direction);
+        }
+
+        return ret;
     }
 
     engageEnemies()

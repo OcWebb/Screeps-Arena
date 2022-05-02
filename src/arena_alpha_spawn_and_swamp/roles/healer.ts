@@ -1,10 +1,11 @@
 import { Creep, StructureSpawn, RoomPosition } from "game/prototypes";
 import { getObjectsByPrototype, findInRange, findClosestByPath } from "game/utils"
-import { ERR_NOT_IN_RANGE, RANGED_ATTACK, ATTACK } from "game/constants"
+import { ERR_NOT_IN_RANGE, RANGED_ATTACK, ATTACK, BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT, DirectionConstant, LEFT, OK, RIGHT, TOP, TOP_LEFT, TOP_RIGHT } from "game/constants"
 import { RoleName, ICreepRole } from "../types";
 import { searchPath } from "game/path-finder"
 import { Visual } from "game/visual"
 import { squads } from "../main"
+import { utils } from "utils/Utils";
 
 export class Healer extends Creep implements ICreepRole
 {
@@ -14,6 +15,7 @@ export class Healer extends Creep implements ICreepRole
     mySpawn: StructureSpawn;
     enemySpawn: StructureSpawn;
     enemyCreeps: Creep[];
+    nextPosition: RoomPosition;
 
     constructor(creep: Creep, squadId: number = -1)
     {
@@ -25,6 +27,7 @@ export class Healer extends Creep implements ICreepRole
         this.mySpawn = getObjectsByPrototype(StructureSpawn).filter(s => s.my)[0];
         this.enemySpawn = getObjectsByPrototype(StructureSpawn).filter(s => !s.my)[0];
         this.enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+        this.nextPosition = { x: creep.x, y: creep.y };
     }
 
     run ()
@@ -50,6 +53,30 @@ export class Healer extends Creep implements ICreepRole
     refreshMemory ()
     {
         this.enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+    }
+
+    roleMoveTo(position: RoomPosition)
+    {
+        let ret = this.creep.moveTo(position);
+
+        if (ret == OK)
+        {
+            this.nextPosition = position;
+        }
+
+        return ret;
+    }
+
+    roleMove(direction: DirectionConstant)
+    {
+        let ret = this.creep.move(direction);
+
+        if (ret == OK)
+        {
+            this.nextPosition = utils.getPositionFromDirection(this.creep, direction);
+        }
+
+        return ret;
     }
 
     retreat(enemies: Creep[], range=4)
