@@ -1,33 +1,24 @@
 import { Creep, StructureSpawn, RoomPosition } from "game/prototypes";
 import { getObjectsByPrototype, findClosestByPath, findInRange, getRange, findClosestByRange } from "game/utils"
-import { ERR_NOT_IN_RANGE, RANGED_ATTACK, ATTACK, HEAL, BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT, DirectionConstant, LEFT, OK, RIGHT, TOP, TOP_LEFT, TOP_RIGHT } from "game/constants"
+import { ERR_NOT_IN_RANGE, RANGED_ATTACK, ATTACK, HEAL } from "game/constants"
 import { searchPath } from "game/path-finder"
 import { Visual } from "game/visual"
-import { RoleName, ICreepRole } from "../types";
-import { utils } from "utils/Utils"
+import { common } from "utils/common"
+import { RoleCreep } from "./roleCreep";
 
-export class RangedAttacker extends Creep implements ICreepRole
+export class RangedAttacker extends RoleCreep
 {
-    creep: Creep;
-    role: RoleName;
-    squadId: number;
-    nextPosition: RoomPosition;
-
     mySpawn: StructureSpawn;
     enemySpawn: StructureSpawn;
     enemyCreeps: Creep[];
 
     constructor(creep: Creep, squadId: number = -1)
     {
-        super(creep.id);
-        this.creep = creep;
-        this.role = "RANGED_ATTACKER";
-        this.squadId = squadId;
+        super(creep, "RANGED_ATTACKER", squadId);
 
         this.mySpawn = getObjectsByPrototype(StructureSpawn).filter(s => s.my)[0];
         this.enemySpawn = getObjectsByPrototype(StructureSpawn).filter(s => !s.my)[0];
         this.enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
-        this.nextPosition = { x: creep.x, y: creep.y };
     }
 
     run ()
@@ -35,38 +26,23 @@ export class RangedAttacker extends Creep implements ICreepRole
         if (!this.creep.exists) { return; }
 
         this.refreshMemory();
+
+        let enemiesInRange = findInRange(this.creep, this.enemyCreeps, 3);
+
+        if (enemiesInRange.length)
+        {
+            this.attackEnemies(this.enemyCreeps);
+        }
+
+        if (!enemiesInRange.length && getRange(this.creep, this.enemySpawn) <= 3)
+        {
+            this.creep.rangedAttack(this.enemySpawn);
+        }
     }
 
     refreshMemory ()
     {
         this.enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
-        // this.nextPosition = { x: this.creep.x, y: this.creep.y };
-    }
-
-    roleMoveTo(position: RoomPosition)
-    {
-        let ret = this.creep.moveTo(position);
-
-        if (ret == OK)
-        {
-            this.nextPosition = position;
-        }
-
-        return ret;
-    }
-
-    roleMove(direction: DirectionConstant)
-    {
-        if (!this.creep.exists) { return; }
-
-        let ret = this.creep.move(direction);
-
-        if (ret == OK)
-        {
-            this.nextPosition = utils.getPositionFromDirection(this.creep, direction);
-        }
-
-        return ret;
     }
 
     engageEnemies()
@@ -74,11 +50,9 @@ export class RangedAttacker extends Creep implements ICreepRole
         let enemiesInRange = findInRange(this.creep, this.enemyCreeps, 3);
 
         if (!enemiesInRange.length) { return; }
-        // this.visualize();
 
         // run from those with attack parts who are too close
-        let armedEnemiesTooClose = findInRange(this.creep, this.enemyCreeps, 2).filter(creep => this.hasAttackParts(creep));
-        console.log("too close " + armedEnemiesTooClose.length)
+        let armedEnemiesTooClose = findInRange(this.creep, this.enemyCreeps, 2).filter(creep => common.hasAttackParts(creep));
         if (armedEnemiesTooClose.length)
         {
             this.retreat(armedEnemiesTooClose);
@@ -101,8 +75,8 @@ export class RangedAttacker extends Creep implements ICreepRole
 
         if (fleePath.path.length && healerPath.path.length)
         {
-            let enemiesInRangeHealer = this.enemiesInRangeOfPosition(healerPath.path[0]);
-            let enemiesInRangeFlee = this.enemiesInRangeOfPosition(fleePath.path[0]);
+            let enemiesInRangeHealer = common.enemiesInRangeOfPosition(healerPath.path[0]);
+            let enemiesInRangeFlee = common.enemiesInRangeOfPosition(fleePath.path[0]);
 
             if (enemiesInRangeHealer <= enemiesInRangeFlee)
             {
@@ -150,66 +124,21 @@ export class RangedAttacker extends Creep implements ICreepRole
         let ranged = enemies.find(creep => creep.body.some(bodyPart => bodyPart.type = RANGED_ATTACK));
         let melee = enemies.find(creep => creep.body.some(bodyPart => bodyPart.type = ATTACK));
 
-        if (healer)
-        {
-            return healer;
-        }
-        else if (ranged)
-        {
-            return ranged;
-        }
-        else if (melee)
-        {
-            return melee;
-        }
-
-        return findClosestByPath(this.creep, enemies);
-    }
-
-    visualize()
-    {
-        let enemiesInRange = findInRange(this.creep, this.enemyCreeps, 3);
-        let enemiesTooClose = findInRange(this.creep, this.enemyCreeps, 2);
-
-        // enemiesInRange.forEach((enemy) =>
+        // if (healer)
         // {
-        //     let vis = new Visual(0, false);
-        //     vis.circle(
-        //         { 'x': enemy.x, 'y': enemy.y },
-        //         {
-        //             opacity: 0.7,
-        //             radius: 0.7,
-        //             fill: "f7e542"
-        //         });
-        //     });
-
-        // enemiesTooClose.forEach((enemy) =>
+        //     return healer;
+        // }
+        // else if (ranged)
         // {
-        //     let vis = new Visual(1, false);
-        //     vis.circle(
-        //         { 'x': enemy.x, 'y': enemy.y },
-        //         {
-        //             opacity: 0.7,
-        //             radius: 0.2,
-        //             fill: "ef4545"
-        //         });
-        // });
-    }
+        //     return ranged;
+        // }
+        // else if (melee)
+        // {
+        //     return melee;
+        // }
 
-    hasAttackParts (creep: Creep)
-    {
-        return creep.body.some( (part) =>
-            (part.type == RANGED_ATTACK && part.hits > 0) ||
-            (part.type == ATTACK && part.hits > 0));
-    }
+        let lowest = enemies.sort((a, b) => a.hits - b.hits);
 
-    enemiesInRangeOfPosition(position: RoomPosition)
-    {
-        let ranged = this.enemyCreeps.filter(creep => creep.body.some(bodyPart => bodyPart.type = RANGED_ATTACK));
-        let melee = this.enemyCreeps.filter(creep => creep.body.some(bodyPart => bodyPart.type = ATTACK));
-        let rangedEnemyCreepsInRange = findInRange(position, ranged, 3);
-        let meleeEnemyCreepsInRange = findInRange(position, melee, 1);
-
-        return rangedEnemyCreepsInRange.length + meleeEnemyCreepsInRange.length;
+        return lowest[0];
     }
 }

@@ -3,21 +3,24 @@ import { Creep, GameObject, Structure, RoomPosition } from "game/prototypes";
 import { getObjectsByPrototype, findInRange, findClosestByPath, getTicks, getRange } from "game/utils"
 import { CostMatrix, searchPath } from "game/path-finder"
 import { Visual } from "game/visual"
-import { Role, RoleName } from "../types"
+import { Role, RoleName } from "../../utils/types"
 import { RangedAttacker } from "../roles/RangedAttacker";
 
 export class Squad
 {
 
     id: number;
+    name: string;
     size: number;
     spread: number;
     roleCreeps: Role[];
     composition: RoleName[];
     filled: boolean;
+    type: string = "Squad"
 
     color: string;
     colors: string[] = ["#ff0000", "#00e5ff", "#fff600", "#ffa100", "#9400ff", "#0019ff", "#e05df4"]
+    names: string[] = ["A", "B", "C", "D", "E", "F"]
 
     dps: number;
     hps: number;
@@ -25,30 +28,26 @@ export class Squad
     costMatrix: CostMatrix = new CostMatrix();
 
     static colorsInUse: string[] = [];
+    static namesInUse: string[] = [];
 
-    constructor (size: number, composition: RoleName[])
+    constructor (composition: RoleName[])
     {
         this.id = getTicks();
-        this.size = size;
+        this.size = composition.length;
         this.spread = 1;
         this.filled = false;
         this.composition = composition;
         this.roleCreeps = [];
-
-        let randomColorIdx = Math.floor(Math.random() * this.colors.length);
-        let curColor = this.colors[randomColorIdx];
-        let m = 0;
-        while (Squad.colorsInUse.includes(curColor) && m++ < 12)
-        {
-            randomColorIdx = Math.floor(Math.random() * this.colors.length);
-            curColor = this.colors[randomColorIdx];
-        }
-
-        this.color = curColor;
-        Squad.colorsInUse.push(curColor);
-
         this.dps = 0;
         this.hps = 0;
+
+        let availableColors = this.colors.filter(n => !Squad.colorsInUse.includes(n));
+        this.color = availableColors[0];
+        Squad.colorsInUse.push(availableColors[0]);
+
+        let availableNames = this.names.filter(n => !Squad.namesInUse.includes(n));
+        this.name = availableNames[0];
+        Squad.namesInUse.push(availableNames[0]);
 
         this.updateCostMatrix();
     }
@@ -57,19 +56,22 @@ export class Squad
     {
         this.updateCostMatrix();
         this.updateStats();
-        let enemies = getObjectsByPrototype(Creep).filter(creep => !creep.my);
-        // pick target
 
-        for (let roleCreep of this.roleCreeps)
+        for (let idx = 0; idx < this.roleCreeps.length; idx++)
         {
-            roleCreep.run();
-            // switch (roleCreep.role)
-            // {
-            //     case "RANGED_ATTACKER":
-            //         let rangedAttacker = roleCreep as RangedAttacker;
-            // }
-        }
+            let roleCreep = this.roleCreeps[idx];
+            if (!roleCreep.creep.exists)
+            {
+                this.roleCreeps.slice(idx, 1);
+                this.size--;
+                continue;
+            }
+            else
+            {
+                roleCreep.run();
+            }
 
+        }
     }
 
 
@@ -106,19 +108,17 @@ export class Squad
             }
 
         }
+
         this.dps = damageOutput;
         this.hps = healOutput;
     }
 
     updateCostMatrix()
     {
+        // cache this properly
         let cm = new CostMatrix();
         let structures = getObjectsByPrototype(Structure).filter(s => s.exists);
         structures.forEach(structure => cm.set(structure.x, structure.y, 255));
-
-        let enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
-        enemyCreeps.forEach(creep => cm.set(creep.x, creep.y, 255));
-
         this.costMatrix = cm;
     }
 
@@ -135,27 +135,34 @@ export class Squad
         this.roleCreeps.forEach(creep =>
         {
             //creep.role
-            expectedComposition.forEach((roleName, idx) =>
+            for (let idx = 0; idx < expectedComposition.length; idx++)
             {
+                let roleName = expectedComposition[idx];
                 if (roleName == creep.role)
                 {
                     expectedComposition.splice(idx, 1);
+                    break;
                 }
-            })
+            }
         });
 
         return expectedComposition;
     }
 
+    getPosition () : RoomPosition
+    {
+        return this.roleCreeps.length ? this.roleCreeps[0].creep : { x: 0, y: 0 }
+    }
+
     squadMove(target: RoomPosition)
     {
-        let closestCreepToTarget = findClosestByPath(target, this.roleCreeps);
+        let closestCreepToTarget = findClosestByPath(target, this.roleCreeps.map(c => c.creep));
         let creepsThatNeedToCatchUp = [];
         for (let squadMember of this.roleCreeps)
         {
-            let squadIsInRange = findInRange(squadMember, this.roleCreeps, this.spread);
+            let squadIsInRange = findInRange(squadMember.creep, this.roleCreeps.map(c => c.creep), this.spread);
             // console.log(squadMember.id + " in range? " + squadIsInRange.length)
-            if (squadIsInRange.length <= 1 && squadMember.id != closestCreepToTarget.id)
+            if (squadIsInRange.length <= 1 && squadMember.creep.id != closestCreepToTarget.id)
             {
                 creepsThatNeedToCatchUp.push(squadMember);
             }
@@ -165,7 +172,7 @@ export class Squad
         {
             for (let squadMember of creepsThatNeedToCatchUp)
             {
-                squadMember.moveTo(closestCreepToTarget);
+                squadMember.creep.moveTo(closestCreepToTarget);
             }
         }
         else
@@ -173,105 +180,109 @@ export class Squad
             for (let squadMember of this.roleCreeps)
             {
                 // set costmatrix to prefer near squadmates, save every tick
-                squadMember.moveTo(target);
+                squadMember.creep.moveTo(target);
             }
         }
     }
 
     squadAttack(target: Creep | Structure)
     {
-        let enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
-        let rangedCreeps = this.roleCreeps.filter(creep => creep.role === "RANGED_ATTACKER") as RangedAttacker[];
-        let meleeCreeps = this.roleCreeps.filter(creep => creep.body.some(p => p.type == ATTACK));
-        let healerCreeps = this.roleCreeps.filter(creep => creep.body.some(p => p.type == HEAL));
+        // let enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+        // let rangedCreeps = this.roleCreeps.filter(creep => creep.role === "RANGED_ATTACKER") as RangedAttacker[];
+        // let meleeCreeps = this.roleCreeps.filter(creep => creep.body.some(p => p.type == ATTACK));
+        // let healerCreeps = this.roleCreeps.filter(creep => creep.body.some(p => p.type == HEAL));
 
-        let enemyRangedPartCount = 0;
-        let enemyAttackPartCount = 0;
-        if ("body" in target)
-        {
-            for (let bodyPart of target.body)
-            {
-                if (bodyPart.type == RANGED_ATTACK) enemyRangedPartCount++;
-                if (bodyPart.type == ATTACK) enemyAttackPartCount++;
-                if (bodyPart.type == ATTACK) enemyAttackPartCount++;
-            }
-        }
+        // let enemyRangedPartCount = 0;
+        // let enemyAttackPartCount = 0;
+        // if ("body" in target)
+        // {
+        //     for (let bodyPart of target.body)
+        //     {
+        //         if (bodyPart.type == RANGED_ATTACK) enemyRangedPartCount++;
+        //         if (bodyPart.type == ATTACK) enemyAttackPartCount++;
+        //         if (bodyPart.type == ATTACK) enemyAttackPartCount++;
+        //     }
+        // }
 
-        if (meleeCreeps.length)
-        {
-            for (let creep of meleeCreeps)
-            {
-                if (creep.attack(target) == ERR_NOT_IN_RANGE)
-                {
-                    // set costmatrix to prefer near squadmates
-                    creep.moveTo(target);
-                }
-            }
-        }
+        // if (meleeCreeps.length)
+        // {
+        //     for (let creep of meleeCreeps)
+        //     {
+        //         if (creep.attack(target) == ERR_NOT_IN_RANGE)
+        //         {
+        //             // set costmatrix to prefer near squadmates
+        //             creep.moveTo(target);
+        //         }
+        //     }
+        // }
 
-        if (rangedCreeps.length)
-        {
-            for (let creep of rangedCreeps)
-            {
-                let enemiesTooClose = findInRange(creep, enemyCreeps, 2);
-                let enemiesInRange = findInRange(creep, enemyCreeps, 3);
-                // count enemies in range and use ranged
-                console.log("enemies to close to " + creep.id)
-                if (enemiesTooClose.length)
-                {
+        // if (rangedCreeps.length)
+        // {
+        //     for (let creep of rangedCreeps)
+        //     {
+        //         let enemiesTooClose = findInRange(creep, enemyCreeps, 2);
+        //         let enemiesInRange = findInRange(creep, enemyCreeps, 3);
+        //         // count enemies in range and use ranged
+        //         console.log("enemies to close to " + creep.id)
+        //         if (enemiesTooClose.length)
+        //         {
 
-                    let goals: { pos: RoomPosition; range: number; }[] = []
-                    enemiesTooClose.forEach(creep => goals.push({ "pos": creep, "range": 4 }));
-                    let ret = searchPath(creep, goals, {flee: true});
-                    if (ret.path.length)
-                    {
-                        creep.rangedAttack(target);
-                        creep.moveTo(ret.path[1]);
-                    }
-                }
-                else if (enemiesInRange.length >= 3)
-                {
-                    creep.rangedMassAttack();
-                }
-                else if (creep.rangedAttack(target) == ERR_NOT_IN_RANGE)
-                {
-                    // set costmatrix to prefer near squadmates
-                    console.log("attacking spawn")
-                    creep.moveTo(target);
-                }
-            }
-        }
+        //             let goals: { pos: RoomPosition; range: number; }[] = []
+        //             enemiesTooClose.forEach(creep => goals.push({ "pos": creep, "range": 4 }));
+        //             let ret = searchPath(creep, goals, {flee: true});
+        //             if (ret.path.length)
+        //             {
+        //                 creep.rangedAttack(target);
+        //                 creep.moveTo(ret.path[1]);
+        //             }
+        //         }
+        //         else if (enemiesInRange.length >= 3)
+        //         {
+        //             creep.rangedMassAttack();
+        //         }
+        //         else if (creep.rangedAttack(target) == ERR_NOT_IN_RANGE)
+        //         {
+        //             // set costmatrix to prefer near squadmates
+        //             console.log("attacking spawn")
+        //             creep.moveTo(target);
+        //         }
+        //     }
+        // }
 
-        if (healerCreeps.length)
-        {
-            for (let creep of healerCreeps)
-            {
-                let lowSquadCreeps = this.roleCreeps.filter(i => i.my && i.hits < i.hitsMax);
-                let creepToHeal = creep.findClosestByRange(lowSquadCreeps);
-                let enemiesTooClose = findInRange(creep, enemyCreeps, 2);
-                // count enemies in range and use ranged
+        // if (healerCreeps.length)
+        // {
+        //     for (let creep of healerCreeps)
+        //     {
+        //         let lowSquadCreeps = this.roleCreeps.filter(i => i.my && i.hits < i.hitsMax);
+        //         let creepToHeal = creep.findClosestByRange(lowSquadCreeps);
+        //         let enemiesTooClose = findInRange(creep, enemyCreeps, 2);
+        //         // count enemies in range and use ranged
 
-                if (creepToHeal && creep.heal(creepToHeal) == ERR_NOT_IN_RANGE)
-                {
-                    // set costmatrix to prefer near squadmates
-                    creep.rangedHeal(creepToHeal);
-                    creep.moveTo(creepToHeal);
-                }
+        //         if (creepToHeal && creep.heal(creepToHeal) == ERR_NOT_IN_RANGE)
+        //         {
+        //             // set costmatrix to prefer near squadmates
+        //             creep.rangedHeal(creepToHeal);
+        //             creep.moveTo(creepToHeal);
+        //         }
 
-                if (enemiesTooClose)
-                {
-                    let ret = searchPath(creep, target, {flee: true});
-                    if (ret.path.length)
-                    {
-                        if (creepToHeal && creep.heal(creepToHeal) == ERR_NOT_IN_RANGE)
-                        {
-                            creep.rangedHeal(creepToHeal);
-                        }
-                        creep.moveTo(ret.path[0]);
-                    }
-                }
-            }
-        }
+        //         if (enemiesTooClose)
+        //         {
+        //             let ret = searchPath(creep, target, {flee: true});
+        //             if (ret.path.length)
+        //             {
+        //                 if (creepToHeal && creep.heal(creepToHeal) == ERR_NOT_IN_RANGE)
+        //                 {
+        //                     creep.rangedHeal(creepToHeal);
+        //                 }
+        //                 creep.moveTo(ret.path[0]);
+        //             }
+        //         }
+        //     }
+        // }
+    }
+
+    squadRetreat(targets: Creep[])
+    {
     }
 
     visualize()
@@ -282,6 +293,7 @@ export class Squad
             if (!creep.exists || !roleCreep.nextPosition) { continue; }
 
             let vis = new Visual(9, false);
+            // console.log(`id ${creep.id}, ${JSON.stringify(roleCreep.nextPosition)}`)
             vis.circle(
                 { 'x': roleCreep.nextPosition.x, 'y': roleCreep.nextPosition.y },
                 {
