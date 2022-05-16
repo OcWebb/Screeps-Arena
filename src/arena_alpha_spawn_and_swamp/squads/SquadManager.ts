@@ -1,4 +1,6 @@
 import { RangedAttacker } from "arena_alpha_spawn_and_swamp/roles/RangedAttacker";
+import { MoveState } from "arena_alpha_spawn_and_swamp/StateMachine/MoveState";
+import { SquadContext } from "arena_alpha_spawn_and_swamp/StateMachine/SquadStateMachine";
 import { Creep, StructureSpawn } from "game/prototypes";
 import { findClosestByPath, findInRange, getObjectsByPrototype, getRange } from "game/utils";
 import { common } from "utils/common";
@@ -31,60 +33,32 @@ export class SquadManager
 
     run()
     {
-        this.setSquadStates();
-        let enemySpawn = getObjectsByPrototype(StructureSpawn).filter(spawn => !spawn.my)[0];
         this.gameState = common.getGameState();
+        let allSquadsFull = true;
 
-        let allFull = true;
         for (let squad of this.squads)
         {
-            squad.logState();
+            if (!squad.isFull()) { allSquadsFull = false; }
+
+            squad.refresh();
+
+            let context: SquadContext = {
+                squad: squad,
+                enemies: this.gameState.enemyCreeps,
+                enemiesTopSide: this.gameState.enemiesOnTopHalf,
+                enemiesBottomSide: this.gameState.enemiesOnBottomHalf
+            }
+
+            squad.stateMachine.setContext(context);
             squad.run();
 
-            if (!squad.roleCreeps.length) { return; }
-
-            if (squad.type === 'TightSquad')
-            {
-                let tightSquad = squad as TightSquad;
-                let outOfPos = tightSquad.getInFormation();
-                if (outOfPos)
-                {
-                    console.log(`squad ${tightSquad.id} out of position`);
-                    continue;
-                }
-            }
-
-            this.runState(squad);
-
-            let enemies = getObjectsByPrototype(Creep).filter(creep => !creep.my)
-
-            for (let roleCreep of squad.roleCreeps)
-            {
-                let creep = roleCreep.creep;
-                let healthPercentage = creep.hits/creep.hitsMax;
-                let closestEnemy = findClosestByPath(creep, enemies);
-                let damageInRange = common.potentialDamageInRange(creep)
-                let potentialNetHealthChange = squad.hps - damageInRange;
-                let weOverpower = squad.dps > damageInRange;
-
-                console.log(`${creep.id} potentialNetHealthChange: ${potentialNetHealthChange}, healthPercentage: ${healthPercentage}, enemiesInRange: ${common.enemiesInRangeOfPosition(creep).length}, weOverpower: ${weOverpower}, this.dps: ${squad.dps}, damageInRange: ${damageInRange}`);
-
-                if (healthPercentage < .45 && potentialNetHealthChange < 0 ||
-                    (closestEnemy && getRange(creep, closestEnemy) <= 2) ||
-                    !weOverpower)
-                {
-                    squad.squadRetreat(enemies);
-                    continue;
-                }
-
-            }
-
-            if (!squad.isFull()) { allFull = false; }
+            console.log(`${squad.id}'s State`)
+            squad.stateMachine.logState();
 
             squad.visualize();
         }
 
-        if (allFull)
+        if (allSquadsFull)
         {
             console.log('Adding Squad!');
             this.addSquad(new TightSquad(this.composition));
@@ -94,7 +68,6 @@ export class SquadManager
     addSquad(squad: Squad)
     {
         this.squads.push(squad);
-        this.squadState[squad.id] = "DEFAULT"
     }
 
     setSquadStates()
@@ -177,6 +150,30 @@ export class SquadManager
 
             }
         }
+    }
+
+    shouldRetreat(squad: Squad, enemies: Creep[]): boolean
+    {
+        for (let roleCreep of squad.roleCreeps)
+        {
+            let creep = roleCreep.creep;
+            let healthPercentage = creep.hits/creep.hitsMax;
+            let closestEnemy = findClosestByPath(creep, enemies);
+            let damageInRange = common.potentialDamageInRange(creep)
+            let potentialNetHealthChange = squad.hps - damageInRange;
+            let weOverpower = squad.dps > damageInRange;
+
+            // console.log(`${creep.id} potentialNetHealthChange: ${potentialNetHealthChange}, healthPercentage: ${healthPercentage}, enemiesInRange: ${common.enemiesInRangeOfPosition(creep).length}, weOverpower: ${weOverpower}, this.dps: ${squad.dps}, damageInRange: ${damageInRange}`);
+
+            if (healthPercentage < .45 && potentialNetHealthChange < 0 ||
+                (closestEnemy && getRange(creep, closestEnemy) <= 2) ||
+                !weOverpower)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     runState(squad: Squad)

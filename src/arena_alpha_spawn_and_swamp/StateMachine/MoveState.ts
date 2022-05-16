@@ -1,28 +1,46 @@
 import { Squad } from "arena_alpha_spawn_and_swamp/squads/squad";
+import { TightSquad } from "arena_alpha_spawn_and_swamp/squads/tightSquad";
 import { RoomPosition } from "game/prototypes";
 import { getRange } from "game/utils";
-import { IStateModel } from "./IStateModel";
+import { IState } from "./IState";
+import { StateMachine } from "./StateMachine";
 
-type moveContext = { squad: Squad, position: RoomPosition, range: number}
+type moveContext = { position: RoomPosition, range: number}
 
-export class MoveState implements IStateModel
+export class MoveState implements IState
 {
     name: string = "MOVE";
+    squad: Squad;
+    stateMachine: StateMachine;
     context: moveContext;
 
-    constructor(context: moveContext)
+    constructor(squad: Squad, moveContext: moveContext)
     {
-        this.context = context;
+        this.squad = squad;
+        this.stateMachine = squad.stateMachine;
+        this.context = moveContext;
     }
 
-    run(): boolean
+    run(): void
     {
-        if (getRange(this.context.position, this.context.squad.getPosition()) > this.context.range )
+        if (this.squad.type === 'TightSquad')
         {
-            this.context.squad.squadMove(this.context.position)
-            return false;
+            let tightSquad = this.squad as TightSquad;
+            let outOfPos = tightSquad.getInFormation();
+            if (outOfPos)
+            {
+                console.log(`squad ${tightSquad.id} out of position`);
+                return;
+            }
         }
 
-        return true;
+        if (getRange(this.context.position, this.squad.getPosition()) > this.context.range )
+        {
+            this.squad.squadMove(this.context.position);
+        }
+        else
+        {
+            this.stateMachine.popState();
+        }
     }
 }

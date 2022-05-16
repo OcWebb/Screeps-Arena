@@ -4,7 +4,7 @@ import { getObjectsByPrototype, findInRange, findClosestByPath, getTicks, getRan
 import { CostMatrix, searchPath } from "game/path-finder"
 import { Visual } from "game/visual"
 import { Role, RoleName } from "../../utils/types"
-import { RangedAttacker } from "../roles/RangedAttacker";
+import { SquadStateMachine } from "arena_alpha_spawn_and_swamp/StateMachine/SquadStateMachine";
 
 export class Squad
 {
@@ -17,6 +17,8 @@ export class Squad
     composition: RoleName[];
     filled: boolean;
     type: string = "Squad"
+
+    stateMachine: SquadStateMachine;
 
     color: string;
     colors: string[] = ["#ff0000", "#00e5ff", "#fff600", "#ffa100", "#9400ff", "#0019ff", "#e05df4"]
@@ -50,13 +52,12 @@ export class Squad
         Squad.namesInUse.push(availableNames[0]);
 
         this.updateCostMatrix();
+
+        this.stateMachine = new SquadStateMachine(this);
     }
 
     run()
     {
-        this.updateCostMatrix();
-        this.updateStats();
-
         for (let idx = 0; idx < this.roleCreeps.length; idx++)
         {
             let roleCreep = this.roleCreeps[idx];
@@ -70,10 +71,16 @@ export class Squad
             {
                 roleCreep.run();
             }
-
         }
+
+        this.stateMachine.runState();
     }
 
+    refresh()
+    {
+        this.updateCostMatrix();
+        this.updateStats();
+    }
 
     addCreep(roleCreep: Role)
     {
