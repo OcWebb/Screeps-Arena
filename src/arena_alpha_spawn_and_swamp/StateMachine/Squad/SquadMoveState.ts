@@ -2,16 +2,16 @@ import { Squad } from "arena_alpha_spawn_and_swamp/squads/squad";
 import { TightSquad } from "arena_alpha_spawn_and_swamp/squads/tightSquad";
 import { RoomPosition } from "game/prototypes";
 import { getRange } from "game/utils";
-import { IState } from "./IState";
-import { StateMachine } from "./StateMachine";
+import { IState } from "../IState";
+import { SquadStateMachine } from "./SquadStateMachine";
 
 type moveContext = { position: RoomPosition, range: number}
 
-export class MoveState implements IState
+export class SquadMoveState implements IState
 {
     name: string = "MOVE";
     squad: Squad;
-    stateMachine: StateMachine;
+    stateMachine: SquadStateMachine;
     context: moveContext;
 
     constructor(squad: Squad, moveContext: moveContext)
@@ -42,5 +42,10 @@ export class MoveState implements IState
         {
             this.stateMachine.popState();
         }
+    }
+
+    seralize(): string
+    {
+        return `(${this.name}) [dest: ${this.context.position.x}-${this.context.position.y}, range: ${this.context.range}]`
     }
 }

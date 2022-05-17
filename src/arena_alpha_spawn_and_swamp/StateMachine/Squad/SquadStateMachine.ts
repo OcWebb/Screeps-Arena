@@ -1,6 +1,6 @@
 import { Squad } from "arena_alpha_spawn_and_swamp/squads/squad";
 import { Creep } from "game/prototypes";
-import { StateMachine } from "./StateMachine";
+import { StateMachine } from "../StateMachine";
 
 export interface SquadContext {
     squad: Squad;

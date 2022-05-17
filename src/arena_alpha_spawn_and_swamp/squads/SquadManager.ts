@@ -1,6 +1,6 @@
-import { RangedAttacker } from "arena_alpha_spawn_and_swamp/roles/RangedAttacker";
-import { MoveState } from "arena_alpha_spawn_and_swamp/StateMachine/MoveState";
-import { SquadContext } from "arena_alpha_spawn_and_swamp/StateMachine/SquadStateMachine";
+import { SquadAttackState } from "arena_alpha_spawn_and_swamp/StateMachine/Squad/SquadAttackState";
+import { SquadRetreatState } from "arena_alpha_spawn_and_swamp/StateMachine/Squad/SquadRetreatState";
+import { SquadContext } from "arena_alpha_spawn_and_swamp/StateMachine/Squad/SquadStateMachine";
 import { Creep, StructureSpawn } from "game/prototypes";
 import { findClosestByPath, findInRange, getObjectsByPrototype, getRange } from "game/utils";
 import { common } from "utils/common";
@@ -42,16 +42,16 @@ export class SquadManager
 
             squad.refresh();
 
+            this.topLevelTransitions(squad);
+
             let context: SquadContext = {
                 squad: squad,
                 enemies: this.gameState.enemyCreeps,
                 enemiesTopSide: this.gameState.enemiesOnTopHalf,
                 enemiesBottomSide: this.gameState.enemiesOnBottomHalf
             }
-
             squad.stateMachine.setContext(context);
             squad.run();
-
             console.log(`${squad.id}'s State`)
             squad.stateMachine.logState();
 
@@ -65,91 +65,38 @@ export class SquadManager
         }
     }
 
+    topLevelTransitions(squad: Squad)
+    {
+        if (this.shouldRetreat(squad, this.gameState.enemyCreeps))
+        {
+            let retreatState = new SquadRetreatState(
+                {
+                    squad: squad,
+                    enemies: this.gameState.enemyCreeps,
+                    range: 6
+                });
+
+            squad.stateMachine.pushState(retreatState);
+            return;
+        }
+
+        let closestEnemyRange = squad.getRange(this.gameState.enemyCreeps);
+        if (closestEnemyRange < 4)
+        {
+            let attackState = new SquadAttackState(
+                {
+                    squad: squad,
+                    enemies: this.gameState.enemyCreeps,
+                });
+
+            squad.stateMachine.pushState(attackState);
+            return;
+        }
+    }
+
     addSquad(squad: Squad)
     {
         this.squads.push(squad);
-    }
-
-    setSquadStates()
-    {
-        for (let squad of this.squads)
-        {
-            let currentState = this.squadState[squad.id];
-
-            console.log(currentState);
-
-            switch (currentState)
-            {
-                case "DEFAULT":
-                    if (this.gameState.enemiesOnTopHalf.length && !Object.values(this.squadState).some(s => s == "TOP"))
-                    {
-                        this.squadState[squad.id] = "TOP";
-                        break;
-                    }
-
-                    if (this.gameState.enemiesOnBottomHalf.length && !Object.values(this.squadState).some(s => s == "BOTTOM"))
-                    {
-                        this.squadState[squad.id] = "BOTTOM";
-                        break;
-                    }
-
-                    if (this.gameState.enemiesOnTopHalf.length)
-                    {
-                        this.squadState[squad.id] = "TOP";
-                        break;
-                    }
-
-                    if (this.gameState.enemiesOnBottomHalf.length)
-                    {
-                        this.squadState[squad.id] = "TOP";
-                        break;
-                    }
-
-
-                    this.squadState[squad.id] = "ATTACK_SPAWN"
-                    break;
-
-
-                case "TOP":
-                    if (this.gameState.enemiesOnTopHalf.length == 0)
-                    {
-                        if (this.gameState.enemiesOnBottomHalf.length)
-                        {
-                            this.squadState[squad.id] = "BOTTOM"
-                        }
-                        else
-                        {
-                            this.squadState[squad.id] = "DEFAULT"
-                        }
-                    }
-
-                    break;
-
-                case "BOTTOM":
-                    if (this.gameState.enemiesOnBottomHalf.length == 0)
-                    {
-                        if (this.gameState.enemiesOnTopHalf)
-                        {
-                            this.squadState[squad.id] = "TOP";
-                        }
-                        else
-                        {
-                            this.squadState[squad.id] = "DEFAULT"
-                        }
-                    }
-
-                    break;
-
-                case "ATTACK_SPAWN":
-                    if (this.gameState.enemiesOnBottomHalf.length || this.gameState.enemiesOnTopHalf.length)
-                    {
-                        this.squadState[squad.id] = "DEFAULT";
-                    }
-                    break;
-
-
-            }
-        }
     }
 
     shouldRetreat(squad: Squad, enemies: Creep[]): boolean
@@ -174,34 +121,6 @@ export class SquadManager
         }
 
         return false;
-    }
-
-    runState(squad: Squad)
-    {
-        let currentState = this.squadState[squad.id];
-        switch (currentState)
-        {
-            case "TOP":
-                let closestTop = findClosestByPath(squad.roleCreeps[0].creep, this.gameState.enemiesOnTopHalf);
-                squad.squadMove(closestTop);
-                break;
-
-            case "BOTTOM":
-                let closestBottom = findClosestByPath(squad.roleCreeps[0].creep, this.gameState.enemiesOnBottomHalf);
-                squad.squadMove(closestBottom);
-                break;
-
-            case "DEFEND_SPAWN":
-                let mySpawn = getObjectsByPrototype(StructureSpawn).filter(spawn => spawn.my)[0];
-                squad.squadMove(mySpawn);
-                break;
-
-            case "ATTACK_SPAWN":
-                let enemySpawn = getObjectsByPrototype(StructureSpawn).filter(spawn => !spawn.my)[0];
-                squad.squadMove(enemySpawn);
-                break;
-
-        }
     }
 
     manageSpawning()

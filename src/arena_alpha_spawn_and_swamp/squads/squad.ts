@@ -4,7 +4,7 @@ import { getObjectsByPrototype, findInRange, findClosestByPath, getTicks, getRan
 import { CostMatrix, searchPath } from "game/path-finder"
 import { Visual } from "game/visual"
 import { Role, RoleName } from "../../utils/types"
-import { SquadStateMachine } from "arena_alpha_spawn_and_swamp/StateMachine/SquadStateMachine";
+import { SquadStateMachine } from "arena_alpha_spawn_and_swamp/StateMachine/Squad/SquadStateMachine";
 
 export class Squad
 {
@@ -94,6 +94,38 @@ export class Squad
         this.updateStats();
 
         return true;
+    }
+
+    getRange(position: RoomPosition[] | RoomPosition): number
+    {
+        let minRange = 999;
+
+        for(let roleCreep of this.roleCreeps)
+        {
+            if (Array.isArray(position))
+            {
+                for(let pos of position)
+                {
+                    let currentRange = getRange(roleCreep.creep, pos);
+                    if (currentRange < minRange)
+                    {
+                        minRange = currentRange;
+                    }
+                }
+            }
+            else
+            {
+                let currentRange = getRange(roleCreep.creep, position);
+                if (currentRange < minRange)
+                {
+                    minRange = currentRange;
+                }
+            }
+
+
+        }
+
+        return minRange;
     }
 
     updateStats()
@@ -288,7 +320,7 @@ export class Squad
         // }
     }
 
-    squadRetreat(targets: Creep[])
+    squadRetreat(targets: RoomPosition[])
     {
     }
 

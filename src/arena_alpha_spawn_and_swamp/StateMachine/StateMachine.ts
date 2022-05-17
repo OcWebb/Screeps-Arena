@@ -27,7 +27,7 @@ export class StateMachine
             let str = "";
             for (var state of this.stateQueue)
             {
-                str += `<-- State (${state.name}) `
+                str += `<-- ${state.seralize()}`
             }
             console.log(str);
         }

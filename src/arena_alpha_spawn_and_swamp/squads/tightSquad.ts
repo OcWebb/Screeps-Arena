@@ -55,23 +55,22 @@ export class TightSquad extends Squad
         return outOfPos;
     }
 
-    squadRetreat(enemies: Creep[], range=6): void
+    squadRetreat(enemies: RoomPosition[], range=6): void
     {
         if (!this.leader?.creep.exists) { return; }
 
-        this.squadMove(this.mySpawn, true);
+        // this.squadMove(this.mySpawn, true);
 
         let goals: { pos: RoomPosition; range: number; }[] = [];
         enemies.forEach(creep => goals.push({ "pos": creep, "range": range }));
-        // let fleePath = searchPath(this.leader.creep, goals, { "flee": true, "costMatrix": this.costMatrix });
+        let fleePath = searchPath(this.leader.creep, goals, { "flee": true, "costMatrix": this.costMatrix });
 
-        // if (fleePath.path.length)
-        // {
-        //     console.log("FLEEING TO");
-        //     console.log(fleePath.path[fleePath.path.length-1]);
-        //     this.squadMove(fleePath.path[fleePath.path.length-1], true);
-        //     this.squadMove(this.mySpawn, true);
-        // }
+        if (fleePath.path.length)
+        {
+            // console.log("FLEEING TO");
+            // console.log(fleePath.path[fleePath.path.length-1]);
+            this.squadMove(fleePath.path[fleePath.path.length-1], true);
+        }
     }
 
     getPosition (): RoomPosition

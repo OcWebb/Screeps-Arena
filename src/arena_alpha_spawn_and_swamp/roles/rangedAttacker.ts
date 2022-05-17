@@ -26,74 +26,11 @@ export class RangedAttacker extends RoleCreep
         if (!this.creep.exists) { return; }
 
         this.refreshMemory();
-
-        let enemiesInRange = findInRange(this.creep, this.enemyCreeps, 3);
-
-        if (enemiesInRange.length)
-        {
-            this.attackEnemies(this.enemyCreeps);
-        }
-
-        if (!enemiesInRange.length && getRange(this.creep, this.enemySpawn) <= 3)
-        {
-            this.creep.rangedAttack(this.enemySpawn);
-        }
     }
 
     refreshMemory ()
     {
         this.enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
-    }
-
-    engageEnemies()
-    {
-        let enemiesInRange = findInRange(this.creep, this.enemyCreeps, 3);
-
-        if (!enemiesInRange.length) { return; }
-
-        // run from those with attack parts who are too close
-        let armedEnemiesTooClose = findInRange(this.creep, this.enemyCreeps, 2).filter(creep => common.hasAttackParts(creep));
-        if (armedEnemiesTooClose.length)
-        {
-            this.retreat(armedEnemiesTooClose);
-        }
-
-        this.attackEnemies(enemiesInRange);
-    }
-
-    retreat(enemies: Creep[], range=4)
-    {
-        console.log("retreating")
-        let goals: { pos: RoomPosition; range: number; }[] = [];
-        enemies.forEach(creep => goals.push({ "pos": creep, "range": range }));
-        let healers = getObjectsByPrototype(Creep).filter(creep => creep.my)
-            .filter(creep => creep.body.some(bodyPart => bodyPart.type = HEAL));
-        let closestHealer = findClosestByPath(this.creep, healers);
-
-        let fleePath = searchPath(this.creep, goals, {flee: true});
-        let healerPath = searchPath(this.creep, closestHealer);
-
-        if (fleePath.path.length && healerPath.path.length)
-        {
-            let enemiesInRangeHealer = common.enemiesInRangeOfPosition(healerPath.path[0]);
-            let enemiesInRangeFlee = common.enemiesInRangeOfPosition(fleePath.path[0]);
-
-            if (enemiesInRangeHealer <= enemiesInRangeFlee)
-            {
-                this.creep.moveTo(healerPath.path[0]);
-                new Visual().poly(healerPath.path, {fill: "16cc1f"});
-            }
-            else
-            {
-                this.creep.moveTo(fleePath.path[0]);
-                new Visual().poly(fleePath.path);
-            }
-        }
-        else if (fleePath.path.length)
-        {
-            this.creep.moveTo(fleePath.path[0]);
-            new Visual().poly(fleePath.path);
-        }
     }
 
     attackEnemies(enemies: Creep[])

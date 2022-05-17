@@ -5,8 +5,8 @@ import { StateMachine } from "./StateMachine";
 export interface IState
 {
     name: string;
-    squad: Squad;
     stateMachine: StateMachine;
 
     run(): void;
+    seralize(): void;
 }
