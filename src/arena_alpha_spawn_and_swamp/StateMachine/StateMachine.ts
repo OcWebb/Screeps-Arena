@@ -24,12 +24,11 @@ export class StateMachine
     {
         if (this.stateQueue.length)
         {
-            let str = "";
             for (var state of this.stateQueue)
             {
-                str += `<-- ${state.seralize()}`
+                console.log(`  ${state.seralize()}`);
             }
-            console.log(str);
+            console.log("\n");
         }
     }
 

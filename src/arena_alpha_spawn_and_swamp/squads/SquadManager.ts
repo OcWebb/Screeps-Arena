@@ -19,7 +19,8 @@ export class SquadManager
         enemyCreeps: Creep[],
         enemiesOnTopHalf: Creep[],
         enemiesOnBottomHalf: Creep[],
-        enemiesPastMiddle: Creep[]
+        enemiesPastMiddle: Creep[],
+        enemySpawn: StructureSpawn
     }
 
     squadState: { [key: number]: states }
@@ -52,8 +53,8 @@ export class SquadManager
             }
             squad.stateMachine.setContext(context);
             squad.run();
-            console.log(`${squad.id}'s State`)
             squad.stateMachine.logState();
+            console.log("\n");
 
             squad.visualize();
         }
@@ -67,29 +68,29 @@ export class SquadManager
 
     topLevelTransitions(squad: Squad)
     {
-        if (this.shouldRetreat(squad, this.gameState.enemyCreeps))
-        {
-            let retreatState = new SquadRetreatState(
-                {
-                    squad: squad,
-                    enemies: this.gameState.enemyCreeps,
-                    range: 6
-                });
-
-            squad.stateMachine.pushState(retreatState);
-            return;
-        }
-
-        let closestEnemyRange = squad.getRange(this.gameState.enemyCreeps);
-        if (closestEnemyRange < 4)
+        if (!squad.stateMachine.stateQueue.length)
         {
             let attackState = new SquadAttackState(
                 {
                     squad: squad,
-                    enemies: this.gameState.enemyCreeps,
+                    structures: [this.gameState.enemySpawn],
                 });
 
             squad.stateMachine.pushState(attackState);
+            return;
+        }
+
+        if (this.shouldRetreat(squad) && !(squad.stateMachine.currentState instanceof SquadRetreatState))
+        {
+            let enemiesInRange = findInRange(squad.getPosition(), this.gameState.enemyCreeps, 4);
+            let retreatState = new SquadRetreatState(
+                {
+                    squad: squad,
+                    enemies: enemiesInRange,
+                    range: 4,
+                    popCondition: this.retreatPopCondition
+                });
+            squad.stateMachine.pushState(retreatState);
             return;
         }
     }
@@ -99,8 +100,10 @@ export class SquadManager
         this.squads.push(squad);
     }
 
-    shouldRetreat(squad: Squad, enemies: Creep[]): boolean
+    shouldRetreat(squad: Squad): boolean
     {
+        let enemies = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+
         for (let roleCreep of squad.roleCreeps)
         {
             let creep = roleCreep.creep;
@@ -121,6 +124,32 @@ export class SquadManager
         }
 
         return false;
+    }
+
+    retreatPopCondition(squad: Squad): boolean
+    {
+        let enemies = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+
+        for (let roleCreep of squad.roleCreeps)
+        {
+            let creep = roleCreep.creep;
+            let healthPercentage = creep.hits/creep.hitsMax;
+            let closestEnemy = findClosestByPath(creep, enemies);
+            let damageInRange = common.potentialDamageInRange(creep)
+            let potentialNetHealthChange = squad.hps - damageInRange;
+            let weOverpower = squad.dps > damageInRange;
+
+            // console.log(`${creep.id} potentialNetHealthChange: ${potentialNetHealthChange}, healthPercentage: ${healthPercentage}, enemiesInRange: ${common.enemiesInRangeOfPosition(creep).length}, weOverpower: ${weOverpower}, this.dps: ${squad.dps}, damageInRange: ${damageInRange}`);
+
+            if (healthPercentage < .45 && potentialNetHealthChange < 0 ||
+                (closestEnemy && getRange(creep, closestEnemy) <= 2) ||
+                !weOverpower)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     manageSpawning()

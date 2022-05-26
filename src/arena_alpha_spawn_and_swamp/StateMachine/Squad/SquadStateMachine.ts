@@ -13,14 +13,23 @@ export class SquadStateMachine extends StateMachine
 {
     context: SquadContext;
 
-    constructor(squad: Squad, context?: SquadContext)
+    constructor(context: SquadContext)
     {
         super();
-        this.context = context ?? { squad: squad };
+        this.context = context;
     }
 
     setContext(context: SquadContext)
     {
         this.context = context;
+    }
+
+    logState(): void
+    {
+        if (this.currentState)
+        {
+            console.log(`${this.context.squad.id}'s State`)
+            super.logState();
+        }
     }
 }

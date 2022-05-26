@@ -1,33 +1,41 @@
 import { Squad } from "arena_alpha_spawn_and_swamp/squads/squad";
-import { RoomPosition } from "game/prototypes";
+import { Creep, RoomPosition } from "game/prototypes";
+import { findInRange, getObjectsByPrototype } from "game/utils";
 import { IState } from "../IState";
 import { SquadStateMachine } from "./SquadStateMachine";
 
-type retreatContext = { squad: Squad, enemies: RoomPosition[], range: number}
+type retreatContext = { squad: Squad, enemies: Creep[], range: number, popCondition: (squad: Squad) => boolean}
 
 export class SquadRetreatState implements IState
 {
     name: string = "RETREAT";
     stateMachine: SquadStateMachine;
     context: retreatContext;
+    enemiesToClose: RoomPosition[];
 
     constructor(retreatContext: retreatContext)
     {
         this.stateMachine = retreatContext.squad.stateMachine;
         this.context = retreatContext;
+        this.enemiesToClose = retreatContext.enemies;
     }
 
     run(): void
     {
-        let enemiesToClose = this.context.enemies.filter(position => this.context.squad.getRange(position) > this.context.range);
+        let allEnemies = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+        this.enemiesToClose = findInRange(this.context.squad.getPosition(), allEnemies, this.context.range); //this.context.enemies.filter(position => this.context.squad.getRange(position) < this.context.range);
 
-        if (enemiesToClose.length)
+        if (this.enemiesToClose.length)
         {
-            this.context.squad.squadRetreat(enemiesToClose);
+            this.context.squad.squadRetreat(this.enemiesToClose);
         }
         else
         {
-            this.stateMachine.popState();
+            console.log("retreatPopCon: " + this.context.popCondition(this.context.squad));
+            if (this.context.popCondition(this.context.squad))
+            {
+                this.stateMachine.popState();1
+            }
         }
     }
 
@@ -35,10 +43,10 @@ export class SquadRetreatState implements IState
     {
         let outputString = `(${this.name}) { `;
 
-        if (this.context.enemies)
+        if (this.enemiesToClose)
         {
             outputString += "positions: [";
-            this.context.enemies.forEach(position => outputString += `(${position.x}-${position.y}), `);
+            this.enemiesToClose.forEach(position => outputString += `(${position.x}-${position.y}), `);
             outputString += "]";
         }
 

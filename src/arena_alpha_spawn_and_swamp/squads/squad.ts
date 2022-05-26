@@ -5,6 +5,7 @@ import { CostMatrix, searchPath } from "game/path-finder"
 import { Visual } from "game/visual"
 import { Role, RoleName } from "../../utils/types"
 import { SquadStateMachine } from "arena_alpha_spawn_and_swamp/StateMachine/Squad/SquadStateMachine";
+import { RangedAttacker } from "arena_alpha_spawn_and_swamp/roles/RangedAttacker";
 
 export class Squad
 {
@@ -53,7 +54,7 @@ export class Squad
 
         this.updateCostMatrix();
 
-        this.stateMachine = new SquadStateMachine(this);
+        this.stateMachine = new SquadStateMachine({ squad: this });
     }
 
     run()
@@ -73,7 +74,27 @@ export class Squad
             }
         }
 
+        let enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+        let enemiesInRange = findInRange(this.getPosition(), enemyCreeps, 3);
+        let target = this.chooseTarget(enemiesInRange);
+        if (enemiesInRange.length && target)
+        {
+            for (let roleCreep of this.roleCreeps)
+            {
+                if (roleCreep instanceof RangedAttacker)
+                {
+                    roleCreep.attackEnemies(enemiesInRange);
+                }
+            }
+        }
+
         this.stateMachine.runState();
+    }
+
+    chooseTarget(enemies: Creep[])
+    {
+        let lowest = enemies.sort((a, b) => a.hits - b.hits);
+        return lowest[0];
     }
 
     refresh()

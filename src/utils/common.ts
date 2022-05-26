@@ -4,17 +4,19 @@ import { RangedAttacker } from "arena_alpha_spawn_and_swamp/roles/RangedAttacker
 import { Transporter } from "arena_alpha_spawn_and_swamp/roles/transporter";
 import { Squad } from "arena_alpha_spawn_and_swamp/squads/squad";
 import { Role, RoleName } from "utils/types";
-import { getObjectsByPrototype, findInRange, getRange } from "game";
-import { ATTACK, ATTACK_POWER, BodyPartConstant, BODYPART_COST, BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT, CARRY, DirectionConstant, HEAL, LEFT, MOVE, RANGED_ATTACK, RANGED_ATTACK_DISTANCE_RATE, RANGED_ATTACK_POWER, RESOURCE_ENERGY, RIGHT, TOP, TOP_LEFT, TOP_RIGHT } from "game/constants";
+import { getObjectsByPrototype, findInRange, getRange, findClosestByPath, getTerrainAt } from "game";
+import { ATTACK, ATTACK_POWER, BodyPartConstant, BODYPART_COST, BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT, CARRY, DirectionConstant, HEAL, HEAL_POWER, LEFT, MOVE, RANGED_ATTACK, RANGED_ATTACK_DISTANCE_RATE, RANGED_ATTACK_POWER, RESOURCE_ENERGY, RIGHT, TERRAIN_WALL, TOP, TOP_LEFT, TOP_RIGHT } from "game/constants";
 import { CostMatrix } from "game/path-finder";
 import { Creep, RoomPosition, StructureSpawn } from "game/prototypes";
 import { Visual } from "game/visual";
+import { SharedCostMatrix } from "arena_alpha_spawn_and_swamp/SharedCostMatrix";
+import { RoleCreep } from "arena_alpha_spawn_and_swamp/roles/roleCreep";
 
 export const ROLE_PARTS: { [key in RoleName]: BodyPartConstant[] } =
 {
     "TRANSPORTER": [CARRY, MOVE, MOVE],
     "MELEE_ATTACKER": [ATTACK, MOVE, MOVE, MOVE, MOVE, MOVE],
-    "RANGED_ATTACKER": [MOVE, MOVE, MOVE, MOVE, MOVE, RANGED_ATTACK],
+    "RANGED_ATTACKER": [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, HEAL, RANGED_ATTACK],
     "HEALER": [MOVE, MOVE, MOVE, MOVE, MOVE, HEAL],
 }
 
@@ -72,11 +74,35 @@ export var common =
             {
                 let currentX = position.x + xoff;
                 let currentY = position.y + yoff;
+
+                if (currentX > 100 || currentX < 0 || currentY > 100 || currentY < 0) { continue; }
+
                 let cost = costMatrix.get(currentX, currentY) ?? 0;
                 let color = cost <= 10 ? "#ffffff" : cost < 255 ? "#e0a400" : "#ff0000";
 
                 // new Visual().text(currentX + ", " + currentY, { x: currentX - 0.2, y: currentY - 0.2 }, { font: 0.25, align: 'left', color: color });
-                visual.text(cost.toString(), { x: currentX, y: currentY }, { font: 0.25, align: 'center', color: color });
+                visual.text("CM:" + cost.toString(), { x: currentX, y: currentY }, { font: 0.25, align: 'center', color: color });
+            }
+        }
+    },
+
+    visualizeDamageNearPosition(position: RoomPosition, size: number = 6)
+    {
+        let visual = new Visual();
+        for (let xoff = -size; xoff <= size; xoff++)
+        {
+            for (let yoff = -size; yoff <= size; yoff++)
+            {
+                let currentX = position.x + xoff;
+                let currentY = position.y + yoff;
+
+                if (currentX > 100 || currentX < 0 || currentY > 100 || currentY < 0) { continue; }
+
+                let damage = SharedCostMatrix.getDamageAtPosition(currentX, currentY);
+                let color = damage <= 20 ? "#ffffff" : damage <= 40 ? "#ede21c" : damage <= 60 ? "#e5a21b" : damage <= 80 ? "#e0a400" : "#ff0000";
+
+                // new Visual().text(currentX + ", " + currentY, { x: currentX - 0.2, y: currentY - 0.2 }, { font: 0.25, align: 'left', color: color });
+                visual.text("D:" + damage.toString(), { x: currentX, y: currentY-0.3 }, { font: 0.25, align: 'center', color: color });
             }
         }
     },
@@ -177,7 +203,7 @@ export var common =
             {
                 if (rangeToPosition == 4) { rangeToPosition = 3; }
 
-                netDamage += (RANGED_ATTACK_POWER * RANGED_ATTACK_DISTANCE_RATE[rangeToPosition]) * rangedAttackParts.length;
+                netDamage += RANGED_ATTACK_POWER * rangedAttackParts.length;
             }
 
             let attackParts = enemyCreep.body.filter(bodyPart => bodyPart.type === ATTACK && bodyPart.hits > 0);
@@ -191,11 +217,52 @@ export var common =
         return netDamage;
     },
 
-    enemyDamageOutput(enemies: Creep[])
+    addEnemyDamageToCostMatrix(roleCreep: RoleCreep, costMatrix: CostMatrix)
+    {
+        let healthRemaining = roleCreep.creep.hits
+        let size = 4;
+
+        for (let xoff = -size; xoff <= size; xoff++)
+        {
+            for (let yoff = -size; yoff <= size; yoff++)
+            {
+                let currentX = roleCreep.creep.x + xoff;
+                let currentY = roleCreep.creep.y + yoff;
+
+                if (currentX > 100 || currentX < 0 || currentY > 100 || currentY < 0) { continue; }
+
+                let damage = SharedCostMatrix.getDamageAtPosition(currentX, currentY);
+                if (damage - roleCreep.hps <= 0)
+                {
+                    continue;
+                }
+
+                let ticksToLive = Math.ceil(healthRemaining / damage);
+                ticksToLive = Math.min(ticksToLive, 15);
+
+                if (ticksToLive < 15)
+                {
+                    let weight = 15 - ticksToLive;
+                    costMatrix.set(currentX, currentY, weight);
+                    continue;
+                }
+
+                // if (damage > roleCreep.)
+
+
+                // if (damage > 0)
+                // {
+                //     costMatrix.set(currentX, currentY, cost);
+                // }
+            }
+        }
+    },
+
+    damageOutput(creeps: Creep[])
     {
         let netDamage = 0;
 
-        for (let enemyCreep of enemies)
+        for (let enemyCreep of creeps)
         {
             let rangedAttackParts = enemyCreep.body.filter(bodyPart => bodyPart.type === RANGED_ATTACK && bodyPart.hits > 0);
             netDamage += RANGED_ATTACK_POWER * rangedAttackParts.length;
@@ -207,11 +274,24 @@ export var common =
         return netDamage;
     },
 
+    healOutput(creeps: Creep[])
+    {
+        let netHealing = 0;
+
+        for (let enemyCreep of creeps)
+        {
+            let healParts = enemyCreep.body.filter(bodyPart => bodyPart.type === HEAL && bodyPart.hits > 0);
+            netHealing += HEAL_POWER * healParts.length;
+        }
+
+        return netHealing;
+    },
+
     getGameState()
     {
         let enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
-        let mySpawn = getObjectsByPrototype(StructureSpawn).filter(spawn => spawn.my);
-        let enemySpawn = getObjectsByPrototype(StructureSpawn).filter(spawn => !spawn.my);
+        let mySpawn = getObjectsByPrototype(StructureSpawn).filter(spawn => spawn.my)[0];
+        let enemySpawn = getObjectsByPrototype(StructureSpawn).filter(spawn => !spawn.my)[0];
 
         let enemiesOnTopHalf = enemyCreeps.filter(creep => creep.y < 20);
         let enemiesOnBottomHalf = enemyCreeps.filter(creep => creep.y > 80);
@@ -224,10 +304,49 @@ export var common =
             enemyCreeps,
             enemiesOnTopHalf,
             enemiesOnBottomHalf,
-            enemiesPastMiddle
+            enemiesPastMiddle,
+            enemySpawn
         }
 
         return info;
+    },
+
+    shouldRetreat(creep: Creep): boolean
+    {
+        let healthPercentage = creep.hits/creep.hitsMax;
+        let allEnemies = getObjectsByPrototype(Creep).filter(creep => !creep.my);
+        let closestEnemy = findClosestByPath(creep, allEnemies);
+
+        if (getRange(creep, closestEnemy) <= 2)
+        {
+            return true;
+        }
+
+        let damageInRange = this.potentialDamageInRange(creep)
+        let hps = 0;
+        creep.body.filter(bodyPart => bodyPart.type == HEAL).forEach(bodyPart => hps += HEAL_POWER)
+
+        let dps = 0;
+        creep.body.filter(bodyPart => bodyPart.type == RANGED_ATTACK).forEach(bodyPart => dps += RANGED_ATTACK_POWER)
+
+        let potentialNetHealthChange = hps - damageInRange;
+
+        // account for my creeps in area
+        let weOverpower = dps > damageInRange;
+
+        // console.log(`${creep.id} potentialNetHealthChange: ${potentialNetHealthChange}, healthPercentage: ${healthPercentage}, enemiesInRange: ${common.enemiesInRangeOfPosition(creep).length}, weOverpower: ${weOverpower}, this.dps: ${squad.dps}, damageInRange: ${damageInRange}`);
+
+        if (healthPercentage < .40 && potentialNetHealthChange < 0)
+        {
+            return true;
+        }
+
+        if (!weOverpower)
+        {
+            return true;
+        }
+
+        return false;
     }
 
 }

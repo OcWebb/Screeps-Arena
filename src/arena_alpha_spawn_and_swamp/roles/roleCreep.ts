@@ -2,25 +2,36 @@ import { IRoleCreep, RoleName } from "../../utils/types";
 import { OK, DirectionConstant } from "game/constants";
 import { Creep, RoomPosition } from "game/prototypes";
 import { common } from "utils/common";
+import { CreepStateMachine } from "arena_alpha_spawn_and_swamp/StateMachine/Creep/CreepStateMachine";
+import { SharedCostMatrix } from "arena_alpha_spawn_and_swamp/SharedCostMatrix";
 
 export class RoleCreep implements IRoleCreep
 {
     role: RoleName;
     squadId: number;
+    taskId: number;
     creep: Creep;
     nextPosition: RoomPosition;
+    stateMachine: CreepStateMachine;
+    dps: number = 0;
+    hps: number = 0;
 
-    constructor(creep: Creep, role: RoleName, squadId: number = -1)
+    constructor(creep: Creep, role: RoleName, taskId: number = 0 , squadId: number = -1)
     {
         this.creep = creep;
         this.role = role;
         this.squadId = squadId;
+        this.taskId = taskId;
         this.nextPosition = { x: 0, y: 0 };
+        this.stateMachine = new CreepStateMachine(this);
     }
 
     run()
     {
+        this.dps = common.damageOutput([this.creep]);
+        this.hps = common.healOutput([this.creep]);
 
+        this.stateMachine.runState();
     }
 
     roleMoveTo(position: RoomPosition)
@@ -44,6 +55,7 @@ export class RoleCreep implements IRoleCreep
         if (ret == OK)
         {
             this.nextPosition = common.getPositionFromDirection(this.creep, direction);
+            SharedCostMatrix.set(this.nextPosition.x, this.nextPosition.y, 255);
         }
 
         return ret;
