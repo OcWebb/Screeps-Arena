@@ -1,22 +1,23 @@
-import { Healer } from "arena_alpha_spawn_and_swamp/roles/Healer";
-import { MeleeAttacker } from "arena_alpha_spawn_and_swamp/roles/MeleeAttacker";
-import { RangedAttacker } from "arena_alpha_spawn_and_swamp/roles/RangedAttacker";
+import { Healer } from "arena_alpha_spawn_and_swamp/roles/healer";
+import { MeleeAttacker } from "arena_alpha_spawn_and_swamp/roles/meleeAttacker";
+import { RangedAttacker } from "arena_alpha_spawn_and_swamp/roles/rangedAttacker";
 import { Transporter } from "arena_alpha_spawn_and_swamp/roles/transporter";
 import { Squad } from "arena_alpha_spawn_and_swamp/squads/squad";
-import { Role, RoleName } from "utils/types";
+import { GameState, Role, RoleName } from "utils/types";
 import { getObjectsByPrototype, findInRange, getRange, findClosestByPath, getTerrainAt } from "game";
-import { ATTACK, ATTACK_POWER, BodyPartConstant, BODYPART_COST, BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT, CARRY, DirectionConstant, HEAL, HEAL_POWER, LEFT, MOVE, RANGED_ATTACK, RANGED_ATTACK_DISTANCE_RATE, RANGED_ATTACK_POWER, RESOURCE_ENERGY, RIGHT, TERRAIN_WALL, TOP, TOP_LEFT, TOP_RIGHT } from "game/constants";
+import { ATTACK, ATTACK_POWER, BodyPartConstant, BODYPART_COST, BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT, CARRY, DirectionConstant, HEAL, HEAL_POWER, LEFT, MOVE, RANGED_ATTACK, RANGED_ATTACK_DISTANCE_RATE, RANGED_ATTACK_POWER, RESOURCE_ENERGY, RIGHT, TERRAIN_WALL, TOP, TOP_LEFT, TOP_RIGHT, TOUGH, WORK } from "game/constants";
 import { CostMatrix } from "game/path-finder";
 import { Creep, RoomPosition, StructureSpawn } from "game/prototypes";
 import { Visual } from "game/visual";
 import { SharedCostMatrix } from "arena_alpha_spawn_and_swamp/SharedCostMatrix";
 import { RoleCreep } from "arena_alpha_spawn_and_swamp/roles/roleCreep";
+import { CreepMoveState } from "arena_alpha_spawn_and_swamp/StateMachine/Creep/CreepMoveState";
 
 export const ROLE_PARTS: { [key in RoleName]: BodyPartConstant[] } =
 {
-    "TRANSPORTER": [CARRY, MOVE, MOVE],
+    "TRANSPORTER": [WORK, CARRY, CARRY, MOVE, MOVE],
     "MELEE_ATTACKER": [ATTACK, MOVE, MOVE, MOVE, MOVE, MOVE],
-    "RANGED_ATTACKER": [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, HEAL, RANGED_ATTACK],
+    "RANGED_ATTACKER": [ MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, HEAL, RANGED_ATTACK],
     "HEALER": [MOVE, MOVE, MOVE, MOVE, MOVE, HEAL],
 }
 
@@ -159,6 +160,16 @@ export var common =
                 case "RANGED_ATTACKER":
                     let rangedAttacker = new RangedAttacker(creep);
                     if (squad) { squad.addCreep(rangedAttacker) }
+
+                    let xPosition = spawn.x > 50 ? spawn.x - 7 : spawn.x + 7;
+                    // TODO: add position param to method so main.js logic can better dictate where to send them on spawning
+                    let clearSpawnAreaState = new CreepMoveState(rangedAttacker,
+                        {
+                            position: { x: xPosition, y: spawn.y },
+                            range: 2
+                        });
+                    rangedAttacker.stateMachine.pushState(clearSpawnAreaState);
+
                     return rangedAttacker;
 
                 case "HEALER":
@@ -189,9 +200,9 @@ export var common =
         return rangedEnemyCreepsInRange.concat(meleeEnemyCreepsInRange);
     },
 
-    potentialDamageInRange(position: RoomPosition): number
+    potentialDamageInRange(position: RoomPosition, my:boolean = false): number
     {
-        let enemies = getObjectsByPrototype(Creep).filter(creep => !creep.my)
+        let enemies = getObjectsByPrototype(Creep).filter(creep => creep.my == my)
         let netDamage = 0;
 
         for (let enemyCreep of enemies)
@@ -217,7 +228,7 @@ export var common =
         return netDamage;
     },
 
-    addEnemyDamageToCostMatrix(roleCreep: RoleCreep, costMatrix: CostMatrix)
+    addEnemyDamageToCostMatrix(roleCreep: RoleCreep, costMatrix: CostMatrix): CostMatrix
     {
         let healthRemaining = roleCreep.creep.hits
         let size = 4;
@@ -237,33 +248,37 @@ export var common =
                     continue;
                 }
 
-                let ticksToLive = Math.ceil(healthRemaining / damage);
-                ticksToLive = Math.min(ticksToLive, 15);
+                // let ticksToLive = Math.ceil(healthRemaining / damage);
+                // ticksToLive = Math.min(ticksToLive, 15);
 
-                if (ticksToLive < 15)
-                {
-                    let weight = 15 - ticksToLive;
-                    costMatrix.set(currentX, currentY, weight);
-                    continue;
-                }
-
-                // if (damage > roleCreep.)
-
-
-                // if (damage > 0)
+                // if (ticksToLive < 15)
                 // {
-                //     costMatrix.set(currentX, currentY, cost);
+                //     let weight = 15 - ticksToLive;
+                //     costMatrix.set(currentX, currentY, weight);
+                //     continue;
                 // }
+
+                if (damage > roleCreep.dps)
+                {
+                    let cost = Math.min(damage, 200)/10;
+
+                    costMatrix.set(currentX, currentY, cost);
+                }
             }
         }
+
+        // common.visualizeCostMatrix(costMatrix, roleCreep.creep, 5);
+        return costMatrix;
     },
 
-    damageOutput(creeps: Creep[])
+    damageOutput(creeps: Creep[]): number
     {
         let netDamage = 0;
 
         for (let enemyCreep of creeps)
         {
+            if(enemyCreep.body == undefined || !enemyCreep.exists) continue;
+
             let rangedAttackParts = enemyCreep.body.filter(bodyPart => bodyPart.type === RANGED_ATTACK && bodyPart.hits > 0);
             netDamage += RANGED_ATTACK_POWER * rangedAttackParts.length;
 
@@ -274,20 +289,42 @@ export var common =
         return netDamage;
     },
 
+    netDamageOutput(friendlyCreeps: Creep[], hostileCreeps: Creep[]): number
+    {
+        let enemyHealing = this.healOutput(hostileCreeps);
+        let netFriendlyDamageOutput = this.damageOutput(friendlyCreeps) - enemyHealing;
+        netFriendlyDamageOutput = netFriendlyDamageOutput < 0 ? 0 : netFriendlyDamageOutput;
+
+        let friendlyHealing = this.healOutput(friendlyCreeps);
+        let netHostileDamageOutput = this.damageOutput(hostileCreeps) - friendlyHealing;
+
+        netHostileDamageOutput = netHostileDamageOutput < 0 ? 0 : netHostileDamageOutput;
+
+        return netFriendlyDamageOutput - netHostileDamageOutput;
+
+    },
+
     healOutput(creeps: Creep[])
     {
         let netHealing = 0;
-
-        for (let enemyCreep of creeps)
+        if (creeps.length)
         {
-            let healParts = enemyCreep.body.filter(bodyPart => bodyPart.type === HEAL && bodyPart.hits > 0);
-            netHealing += HEAL_POWER * healParts.length;
+            for (let enemyCreep of creeps)
+            {
+                if (enemyCreep.exists && enemyCreep.body.length)
+                {
+                    let healParts = enemyCreep.body.filter(bodyPart => bodyPart.type === HEAL && bodyPart.hits > 0);
+                    netHealing += HEAL_POWER * healParts.length;
+
+                }
+            }
         }
+
 
         return netHealing;
     },
 
-    getGameState()
+    getGameState(): GameState
     {
         let enemyCreeps = getObjectsByPrototype(Creep).filter(creep => !creep.my);
         let mySpawn = getObjectsByPrototype(StructureSpawn).filter(spawn => spawn.my)[0];
@@ -297,7 +334,7 @@ export var common =
         let enemiesOnBottomHalf = enemyCreeps.filter(creep => creep.y > 80);
         let enemiesPastMiddle = enemyCreeps.filter(creep => creep.x >= 50)
 
-        console.log(`enemies - Top: ${enemiesOnTopHalf.length}, Bottom: ${enemiesOnBottomHalf.length}, Middle: ${enemiesPastMiddle.length},`);
+        // console.log(`enemies - Top: ${enemiesOnTopHalf.length}, Bottom: ${enemiesOnBottomHalf.length}, Middle: ${enemiesPastMiddle.length},`);
 
         let info =
         {
@@ -317,24 +354,24 @@ export var common =
         let allEnemies = getObjectsByPrototype(Creep).filter(creep => !creep.my);
         let closestEnemy = findClosestByPath(creep, allEnemies);
 
-        if (getRange(creep, closestEnemy) <= 2)
+        if (closestEnemy == null)
+        {
+            return false;
+        }
+
+        if (getRange(creep, closestEnemy) < 3)
         {
             return true;
         }
 
-        let damageInRange = this.potentialDamageInRange(creep)
+        let damageInRange = SharedCostMatrix.getDamageAtPosition(creep.x, creep.y); //this.potentialDamageInRange(creep)
+        let myDpsInRange = this.potentialDamageInRange(closestEnemy, true);
         let hps = 0;
         creep.body.filter(bodyPart => bodyPart.type == HEAL).forEach(bodyPart => hps += HEAL_POWER)
-
-        let dps = 0;
-        creep.body.filter(bodyPart => bodyPart.type == RANGED_ATTACK).forEach(bodyPart => dps += RANGED_ATTACK_POWER)
-
         let potentialNetHealthChange = hps - damageInRange;
 
         // account for my creeps in area
-        let weOverpower = dps > damageInRange;
-
-        // console.log(`${creep.id} potentialNetHealthChange: ${potentialNetHealthChange}, healthPercentage: ${healthPercentage}, enemiesInRange: ${common.enemiesInRangeOfPosition(creep).length}, weOverpower: ${weOverpower}, this.dps: ${squad.dps}, damageInRange: ${damageInRange}`);
+        let weOverpower = myDpsInRange >= damageInRange;
 
         if (healthPercentage < .40 && potentialNetHealthChange < 0)
         {

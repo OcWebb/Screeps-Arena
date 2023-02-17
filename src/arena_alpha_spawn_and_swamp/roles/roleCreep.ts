@@ -32,6 +32,7 @@ export class RoleCreep implements IRoleCreep
         this.hps = common.healOutput([this.creep]);
 
         this.stateMachine.runState();
+        SharedCostMatrix.set(this.creep.x, this.creep.y, 255);
     }
 
     roleMoveTo(position: RoomPosition)
@@ -41,8 +42,8 @@ export class RoleCreep implements IRoleCreep
         if (ret == OK)
         {
             this.nextPosition = position;
+            SharedCostMatrix.set(this.nextPosition.x, this.nextPosition.y, 255);
         }
-
         return ret;
     }
 
@@ -56,6 +57,8 @@ export class RoleCreep implements IRoleCreep
         {
             this.nextPosition = common.getPositionFromDirection(this.creep, direction);
             SharedCostMatrix.set(this.nextPosition.x, this.nextPosition.y, 255);
+        } else {
+            SharedCostMatrix.set(this.creep.x, this.creep.y, 255);
         }
 
         return ret;

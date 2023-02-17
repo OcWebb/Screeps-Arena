@@ -1,5 +1,5 @@
 import { Creep } from "game/prototypes";
-import { RoleName } from "utils/types";
+import { GameState, RoleName } from "utils/types";
 import { RoleCreep } from "./roles/roleCreep";
 
 
@@ -12,6 +12,7 @@ export class Task
     id: number;
     static idsInUse: number[] = [];
     static allTasks: Task[] = [];
+    name: string = "";
 
     constructor()
     {
@@ -24,7 +25,6 @@ export class Task
             id = Math.floor(Math.random()*100);
         }
         this.id = id;
-
     }
 
     execute()
@@ -41,10 +41,26 @@ export class Task
         }
     }
 
+    updateContext(gameState: GameState)
+    {
+
+    }
+
     assignCreep(roleCreep: RoleCreep)
     {
         this.roleCreepsAssigned.push(roleCreep);
         roleCreep.taskId = this.id;
+        roleCreep.stateMachine.clearStates();
+    }
+
+    isFinished(): Boolean
+    {
+        return false;
+    }
+
+    findBestCandidate(roleCreeps: RoleCreep[]): RoleCreep
+    {
+        return roleCreeps[0];
     }
 
     onFinish()

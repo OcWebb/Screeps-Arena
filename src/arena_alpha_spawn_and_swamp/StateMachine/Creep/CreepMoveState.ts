@@ -29,9 +29,8 @@ export class CreepMoveState implements IState
         if (getRange(this.context.position, this.roleCreep.creep) > this.context.range )
         {
             let costMatrix = SharedCostMatrix.getCostMatrix();
-            common.addEnemyDamageToCostMatrix(this.roleCreep, costMatrix);
-
-            let ret = searchPath(this.roleCreep.creep, this.context.position, { costMatrix:  costMatrix, swampCost: 2 } );
+            // todo: swamp cost based on body parts
+            let ret = searchPath(this.roleCreep.creep, this.context.position, { costMatrix:  costMatrix } );
             if (ret.path.length)
             {
                 new Visual(10, false).poly(ret.path, {stroke: "#43c103"});

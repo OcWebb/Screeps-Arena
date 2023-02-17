@@ -26,10 +26,12 @@ export class StateMachine
         {
             for (var state of this.stateQueue)
             {
+                // console.log(state.name)
                 console.log(`  ${state.seralize()}`);
             }
             console.log("\n");
         }
+        // console.log("empty")
     }
 
     pushState(state: IState)
@@ -48,11 +50,13 @@ export class StateMachine
         }
     }
 
+    clearStates(): void
+    {
+        this.stateQueue = [];
+    }
+
     setContext(context: object)
     {
         this.context = context;
     }
-
-
-
 }

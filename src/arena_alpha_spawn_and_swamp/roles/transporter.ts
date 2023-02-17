@@ -11,9 +11,9 @@ export class Transporter extends RoleCreep
     enemySpawn: StructureSpawn;
     containers: StructureContainer[];
 
-    constructor(creep: Creep, squadId: number = -1)
+    constructor(creep: Creep, taskId: number = 0)
     {
-        super(creep, "TRANSPORTER", squadId);
+        super(creep, "TRANSPORTER", taskId);
 
         this.mySpawn = getObjectsByPrototype(StructureSpawn).filter(s => s.my)[0];
         this.enemySpawn = getObjectsByPrototype(StructureSpawn).filter(s => !s.my)[0];
@@ -22,27 +22,7 @@ export class Transporter extends RoleCreep
 
     run ()
     {
-        if (!this.creep.exists) { return; }
-
-        this.refreshMemory();
-
-        let filledContainers = this.containers.filter(container => container.store.getUsedCapacity(RESOURCE_ENERGY));
-        let container = findClosestByPath(this.creep, filledContainers);
-
-        if(this.creep.store.getFreeCapacity(RESOURCE_ENERGY))
-        {
-            if (container && this.creep.withdraw(container, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE)
-            {
-                this.creep.moveTo(container);
-            }
-        }
-        else
-        {
-            if(this.creep.transfer(this.mySpawn, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE)
-            {
-                this.creep.moveTo(this.mySpawn);
-            }
-        }
+        super.run();
     }
 
     refreshMemory ()

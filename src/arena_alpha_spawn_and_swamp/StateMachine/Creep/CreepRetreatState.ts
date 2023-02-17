@@ -4,7 +4,7 @@ import { Squad } from "arena_alpha_spawn_and_swamp/squads/squad";
 import { TightSquad } from "arena_alpha_spawn_and_swamp/squads/tightSquad";
 import { ATTACK, HEAL, HEAL_POWER, RANGED_ATTACK, RANGED_ATTACK_POWER } from "game/constants";
 import { CostMatrix, searchPath } from "game/path-finder";
-import { Creep, RoomPosition } from "game/prototypes";
+import { Creep, RoomPosition, StructureSpawn } from "game/prototypes";
 import { findClosestByPath, findInRange, getObjectsByPrototype, getRange } from "game/utils";
 import { Visual } from "game/visual";
 import { common } from "utils/common";
@@ -12,7 +12,7 @@ import { IState } from "../IState";
 import { SquadStateMachine } from "../Squad/SquadStateMachine";
 import { CreepStateMachine } from "./CreepStateMachine";
 
-type retreatContext = { }
+type retreatContext = { toSpawn: boolean | undefined };
 
 export class CreepRetreatState implements IState
 {
@@ -35,6 +35,7 @@ export class CreepRetreatState implements IState
         let rangedAttackers = allEnemies.filter(creep => creep.body.some(bodyPart => bodyPart.type == RANGED_ATTACK));
         let meleeAttackers = allEnemies.filter(creep => creep.body.some(bodyPart => bodyPart.type == ATTACK));
         let enemiesToFleeFrom: { pos: RoomPosition; range: number; }[] = [];
+        let mySpawn = getObjectsByPrototype(StructureSpawn).filter(spawn => spawn.my);
 
         for (let meleeAttacker of meleeAttackers)
         {
@@ -55,9 +56,17 @@ export class CreepRetreatState implements IState
         if (enemiesToFleeFrom.length)
         {
             let costMatrix = SharedCostMatrix.getCostMatrix();
-            common.addEnemyDamageToCostMatrix(this.roleCreep, costMatrix);
+            costMatrix = common.addEnemyDamageToCostMatrix(this.roleCreep, costMatrix);
 
-            let fleePath = searchPath(myRoleCreep.creep, enemiesToFleeFrom, { flee: true, costMatrix: costMatrix, swampCost: 2, range: 8 });
+            let fleePath;
+            // let fleePath = searchPath(myRoleCreep.creep, enemiesToFleeFrom, { flee: true, costMatrix: costMatrix, swampCost: 2, range: 8 });
+            if (this.context.toSpawn != undefined && this.context.toSpawn == false)
+            {
+                fleePath = searchPath(myRoleCreep.creep, enemiesToFleeFrom, { costMatrix: costMatrix, swampCost: 2, range: 4, flee: true });
+            } else {
+                fleePath = searchPath(myRoleCreep.creep, mySpawn, { costMatrix: costMatrix, swampCost: 2, range: 8 });
+            }
+
 
             if (fleePath.path.length)
             {

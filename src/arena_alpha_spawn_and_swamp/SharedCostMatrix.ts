@@ -1,5 +1,5 @@
 import { getObjectsByPrototype, getRange, getTerrainAt } from "game";
-import { ATTACK, ATTACK_POWER, RANGED_ATTACK, RANGED_ATTACK_POWER, TERRAIN_WALL } from "game/constants";
+import { ATTACK, ATTACK_POWER, RANGED_ATTACK, RANGED_ATTACK_POWER, TERRAIN_SWAMP, TERRAIN_WALL } from "game/constants";
 import { CostMatrix } from "game/path-finder";
 import { Creep } from "game/prototypes";
 
@@ -20,17 +20,20 @@ export class SharedCostMatrix
     {
         let costMatrix = new CostMatrix();
         SharedCostMatrix._costMatrix = costMatrix;
-
-        // let newDamageArray: number[] = [];
-        // for (let i = 0; i < 10000; i++)
-        // {
-        //     newDamageArray.push(0);
-        // }
-
         SharedCostMatrix._damageAtPosition = Array(10000).fill(0);
         SharedCostMatrix.setEnemyCosts();
 
-        // console.log(SharedCostMatrix._damageAtPosition)
+        // set swamp costs
+        for(let x = 0; x < 100; x++)
+        {
+            for(let y = 0; y < 100; y++)
+            {
+                if (getTerrainAt({ x: x, y: y }) == TERRAIN_SWAMP)
+                {
+                    SharedCostMatrix.set(x, y, 3);
+                }
+            }
+        }
     }
 
     static getCostMatrix(): CostMatrix
@@ -68,7 +71,6 @@ export class SharedCostMatrix
             let range = 4;
             if (rangedAttackParts.length || attackParts.length)
             {
-                console.log(`Creep ${creep.id}`);
                 for (let xoff = -range; xoff <= range; xoff++)
                 {
                     let currentX = creep.x + xoff;
@@ -89,17 +91,21 @@ export class SharedCostMatrix
                             attackPartDamage = ATTACK_POWER * attackParts.length;
                         }
 
-                        let rangedAttackDamage = RANGED_ATTACK_POWER * rangedAttackParts.length;
+                        let rangedAttackDamage = 0;
+
+                        if (currentRange <= 4)
+                        {
+                            rangedAttackDamage = RANGED_ATTACK_POWER * rangedAttackParts.length;
+                        }
 
                         cost += attackPartDamage + rangedAttackDamage;
 
                         // costMatrix.set(currentX, currentY, cost/4);
-                        SharedCostMatrix._damageAtPosition[currentX * 100 + currentY] += cost;
+                        SharedCostMatrix._damageAtPosition[currentX * 100 + currentY] = cost;
                         // console.log(`RA (${rangedAttackDamage}) A (${attackPartDamage})`);
                         // console.log(`enemy (${creep.x},${creep.y}) pos (${currentX},${currentY}) range (${currentRange}) cm (${costMatrix.get(currentX, currentY) ?? 0}) cost (${cost})`);
                     }
                 }
-                console.log(`\n`);
             }
         }
     }

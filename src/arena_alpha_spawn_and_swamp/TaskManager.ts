@@ -2,6 +2,7 @@ import { common } from "utils/common";
 import { RoleName } from "utils/types";
 import { RoleCreep } from "./roles/roleCreep";
 import { Task } from "./Task";
+import { DefendSpawnTask } from "./DefendSpawnState";
 
 
 export class TaskManager
@@ -19,58 +20,128 @@ export class TaskManager
 
     run()
     {
-        this.manageCreepMemory();
+        // this.manageCreepMemory();
+        var gameState = common.getGameState();
 
-        // if (!this.activeTasks.length)
-        // {
-        //     let attackSpawnTask =
-        //     this.activeTasks.push();
-        // }
+        for (let task of this.activeTasks)
+        {
+            // re-prioritize and update context
+            task.updateContext(gameState);
+            task.execute();
+            if (task.isFinished())
+            {
+                task.roleCreepsAssigned.forEach(c => c.taskId = 0);
+                this.activeTasks.splice(this.activeTasks.indexOf(task), 1);
+            }
+        }
 
-        // for (let task of this.activeTasks)
-        // {
-        //     // re-prioritize and update context
-        // }
+        this.activeTasks.sort((taskA, taskB) => taskA.priority - taskB.priority);
 
-        // this.activeTasks.sort((taskA, taskB) => taskA.priority - taskB.priority);
+        for (let task of this.activeTasks)
+        {
+            this.tryAssignUnits(task);
+        }
 
-        // for (let task of this.activeTasks)
-        // {
-        //     this.tryAssignUnits(task);
-        // }
+        this.reassignCreepsToTasks();
 
         for (let roleCreep of this.roleCreeps)
         {
             roleCreep.run();
         }
+    }
 
-
+    addTask(task: Task)
+    {
+        this.activeTasks.push(task);
     }
 
     tryAssignUnits(task: Task)
     {
         let rolesNeeded = task.getRolesNeeded();
-        let unassignedCreeps = this.roleCreeps.filter(roleCreep => roleCreep.taskId == 0)
 
-        for(let i = 0; i < unassignedCreeps.length-1; i++)
+        if (rolesNeeded == undefined || rolesNeeded.length == 0) { return; }
+
+        let unassignedCreeps = this.roleCreeps.filter(roleCreep => roleCreep.creep.exists && roleCreep.taskId == 0)
+        if (unassignedCreeps.length)
         {
-            let roleCreep = unassignedCreeps[i];
+            let unassignedCreepsOfNeededRole = unassignedCreeps.filter(roleCreep => rolesNeeded.includes(roleCreep.role));
 
-            if (rolesNeeded.includes(roleCreep.role))
+            while (unassignedCreepsOfNeededRole.length)
             {
-                task.assignCreep(roleCreep);
-                rolesNeeded.slice(rolesNeeded.indexOf(roleCreep.role), 1);
+                let findBestCreep = task.findBestCandidate(unassignedCreepsOfNeededRole);
+                console.log("Assigning creep " + findBestCreep.creep.id +  " to task (" + task.id+")" + task.name);
+                console.log(JSON.stringify(findBestCreep.creep))
+
+                task.assignCreep(findBestCreep);
+
+                rolesNeeded = task.getRolesNeeded()
+                unassignedCreeps = this.roleCreeps.filter(roleCreep => roleCreep.creep.exists && roleCreep.taskId == 0)
+                if (rolesNeeded == undefined || rolesNeeded.length == 0)
+                {
+                    break;
+                }
+
+                unassignedCreepsOfNeededRole = unassignedCreeps.filter(x => rolesNeeded.includes(x.role))
             }
         }
+    }
 
-        // if (task.priority == 1)
-        // {
-        //     let roleCreepsOnLowerPriorityTasks: RoleCreep[] = [];
-        //     this.activeTasks.filter(task => task.priority > 1).forEach(task => roleCreepsOnLowerPriorityTasks.push(...task.roleCreepsAssigned));
+    reassignCreepsToTasks()
+    {
+        this.activeTasks.sort((taskA, taskB) => taskA.priority - taskB.priority);
 
-        //     // assign
-        // }
+        if (this.activeTasks)
+        {
+            for (let i = 0; i < this.activeTasks.length; i++)
+            {
+                let task = this.activeTasks[i];
+                let neededRoles = task.getRolesNeeded();
+                if (neededRoles == undefined || !neededRoles.length)
+                {
+                    continue;
+                }
 
+                let applicableCreeps: RoleCreep[] = [];
+                for (let j=i+1; j < this.activeTasks.length; j++)
+                {
+                    let taskToMoveFrom = this.activeTasks[j];
+                    let creepsWithNeededRole = taskToMoveFrom.roleCreepsAssigned.filter(x => neededRoles.includes(x.role) && x.creep.exists);
+                    if (creepsWithNeededRole.length)
+                    {
+                        creepsWithNeededRole.forEach(x => applicableCreeps.push(x));
+                    }
+                }
+
+                if (applicableCreeps.length)
+                {
+                    while (applicableCreeps.length)
+                    {
+                        let findBestCreep = task.findBestCandidate(applicableCreeps);
+
+                        for (let task of this.activeTasks)
+                        {
+                            var matchingCreeps = task.roleCreepsAssigned.filter(x => x.creep.id === findBestCreep.creep.id);
+                            if(matchingCreeps.length)
+                            {
+                                task.roleCreepsAssigned.splice(task.roleCreepsAssigned.indexOf(matchingCreeps[0]), 1);
+
+                                break;
+                            }
+                        }
+
+                        task.assignCreep(findBestCreep);
+                        console.log("Reassigning creep " + findBestCreep.creep.id +  " to task " + task.name + "(" + task.id+")");
+
+                        applicableCreeps.splice(applicableCreeps.indexOf(findBestCreep), 1);
+                        let neededRoles = task.getRolesNeeded();
+                        if (neededRoles == undefined || !neededRoles.length)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     manageCreepMemory()
@@ -104,5 +175,19 @@ export class TaskManager
         {
             this.roleCreepsSpawning.push(roleCreep);
         }
+    }
+
+    logTasks()
+    {
+        console.log("\n\t   Task List");
+        for (let task of this.activeTasks)
+        {
+            let isFull = task.getRolesNeeded().length == 0;
+            console.log("\t|" + task.priority + "| " + "(id: " + task.id + ") " + task.name + (isFull ? " FULL" : ""));
+            var creepIdString = "";
+            task.roleCreepsAssigned.forEach(x => { if (x != undefined) creepIdString += x.creep.id + ", " });
+            console.log("\t| |\t" + task.roleCreepsAssigned.length + " Creep(s): " + creepIdString);
+        }
+        console.log("\n");
     }
 }

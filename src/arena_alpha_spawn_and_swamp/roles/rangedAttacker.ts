@@ -14,9 +14,9 @@ export class RangedAttacker extends RoleCreep
     enemySpawn: StructureSpawn;
     enemyCreeps: Creep[];
 
-    constructor(creep: Creep, squadId: number = -1)
+    constructor(creep: Creep, taskId: number = 0)
     {
-        super(creep, "RANGED_ATTACKER", squadId);
+        super(creep, "RANGED_ATTACKER", taskId);
 
         this.mySpawn = getObjectsByPrototype(StructureSpawn).filter(s => s.my)[0];
         this.enemySpawn = getObjectsByPrototype(StructureSpawn).filter(s => !s.my)[0];
@@ -28,24 +28,49 @@ export class RangedAttacker extends RoleCreep
         if (!this.creep.exists) { return; }
 
         this.refreshMemory();
-
-        this.attackEnemies(this.enemyCreeps);
+        this.creep.heal(this.creep);
         this.heal();
+        this.attackEnemies(this.enemyCreeps);
 
-        if (this.stateMachine.stateQueue.length == 0)
+        // if (this.stateMachine.stateQueue.length == 0)
+        // {
+        //     // let yVal = Math.random() < 0.5 ? 90 : 10;
+        //     // let moveToSpawnState = new CreepMoveState(this, { position: { x: this.creep.x, y: yVal }, range: 3 });
+        //     // this.stateMachine.pushState(moveToSpawnState);
+        //     let moveToSpawnState = new CreepMoveState(this, { position: this.enemySpawn, range: 3 });
+        //     this.stateMachine.pushState(moveToSpawnState);
+        // }
+        if (this.mySpawn.getRangeTo(this.creep) < 8 && this.stateMachine.currentState instanceof CreepRetreatState)
         {
-            let moveToSpawnState = new CreepMoveState(this, { position: this.enemySpawn, range: 3 });
-            this.stateMachine.pushState(moveToSpawnState);
+            this.stateMachine.popState();
         }
 
-        if (common.shouldRetreat(this.creep) && !(this.stateMachine.currentState instanceof CreepRetreatState))
+        let friendlys = getObjectsByPrototype(Creep).filter(creep => creep.my && this.creep.getRangeTo(creep) <= 4);
+        let enemies = getObjectsByPrototype(Creep).filter(creep => !creep.my && this.creep.getRangeTo(creep) <= 4);
+        let netDamageInArea = common.netDamageOutput(friendlys, enemies);
+
+        if (netDamageInArea < 0 &&
+            common.shouldRetreat(this.creep) &&
+            !(this.stateMachine.currentState instanceof CreepRetreatState))
         {
-            let retreatSpawnState = new CreepRetreatState(this, { });
-            this.stateMachine.pushState(retreatSpawnState);
+            if (this.mySpawn.getRangeTo(this.creep) > 8)
+            {
+                let retreatSpawnState = new CreepRetreatState(this, { toSpawn: true });
+                this.stateMachine.pushState(retreatSpawnState);
+
+            } else {
+                let retreatSpawnState = new CreepRetreatState(this, { toSpawn: false});
+                this.stateMachine.pushState(retreatSpawnState);
+            }
         }
 
-        this.stateMachine.logState();
+        if (this.enemySpawn.getRangeTo(this.creep) <= 3)
+        {
+            this.creep.rangedAttack(this.enemySpawn);
+        }
 
+        // this.stateMachine.logState();
+        // console.log
         super.run();
     }
 
@@ -57,13 +82,13 @@ export class RangedAttacker extends RoleCreep
     heal()
     {
         let friendlyCreeps = getObjectsByPrototype(Creep).filter(creep => creep.my);
-        let friendliesInRange = findInRange(this.creep, friendlyCreeps, 3);
+        let friendliesInRange = findInRange(this.creep, friendlyCreeps, 1);
 
         let lowestHp = 999999;
         let lowestAlly = undefined;
         for (let creep of friendliesInRange)
         {
-            if (creep.hits < lowestHp)
+            if (creep.hits < lowestHp && creep.hits != creep.hitsMax)
             {
                 lowestHp = creep.hits;
                 lowestAlly = creep;
@@ -72,10 +97,10 @@ export class RangedAttacker extends RoleCreep
 
         if (lowestHp < this.creep.hits && lowestAlly)
         {
-            console.log(`${this.creep.id} healing ${lowestAlly.id}`)
+            // console.log(`${this.creep.id} healing ${lowestAlly.id}`)
             if (this.creep.heal(lowestAlly) == ERR_NOT_IN_RANGE)
             {
-                this.creep.rangedHeal(lowestAlly);
+                // this.creep.rangedHeal(lowestAlly);
             }
         }
         else
@@ -87,6 +112,7 @@ export class RangedAttacker extends RoleCreep
 
     attackEnemies(enemies: Creep[])
     {
+        let visual = new Visual();
         if (getRange(this.creep, this.enemySpawn) <= 3)
         {
             this.creep.rangedAttack(this.enemySpawn);
@@ -108,6 +134,7 @@ export class RangedAttacker extends RoleCreep
 
             if(target)
             {
+                visual.circle({ x: target.x, y: target.y-0.5 }, { opacity: 0.2, fill: "#ba0000" })
                 this.creep.rangedAttack(target);
             }
         }
@@ -115,12 +142,20 @@ export class RangedAttacker extends RoleCreep
 
     chooseTarget(enemies: Creep[])
     {
-        let healer = enemies.find(creep => creep.body.some(bodyPart => bodyPart.type = HEAL));
-        let ranged = enemies.find(creep => creep.body.some(bodyPart => bodyPart.type = RANGED_ATTACK));
-        let melee = enemies.find(creep => creep.body.some(bodyPart => bodyPart.type = ATTACK));
+        let denseRankThreshold = 100;
 
-        let lowest = enemies.sort((a, b) => a.hits - b.hits);
+        let healers = enemies.filter(creep => creep.body.some(bodyPart => bodyPart.type = HEAL));
+        let ranged = enemies.filter(creep => creep.body.some(bodyPart => bodyPart.type = RANGED_ATTACK));
+        let melees = enemies.filter(creep => creep.body.some(bodyPart => bodyPart.type = ATTACK));
 
-        return lowest[0];
+        let lowest = enemies.sort((a, b) => a.hits - b.hits)[0];
+        let lowesetHealer = healers.sort((a, b) => a.hits - b.hits)[0];
+
+        if (lowesetHealer.hits - lowest.hits <= denseRankThreshold)
+        {
+            return lowesetHealer;
+        }
+
+        return lowest;
     }
 }
