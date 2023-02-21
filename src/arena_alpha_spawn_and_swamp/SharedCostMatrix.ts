@@ -1,4 +1,4 @@
-import { getObjectsByPrototype, getRange, getTerrainAt } from "game";
+import { getObjectsByPrototype, getRange, getTerrainAt } from "game/utils";
 import { ATTACK, ATTACK_POWER, RANGED_ATTACK, RANGED_ATTACK_POWER, TERRAIN_SWAMP, TERRAIN_WALL } from "game/constants";
 import { CostMatrix } from "game/path-finder";
 import { Creep } from "game/prototypes";

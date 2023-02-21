@@ -1,8 +1,8 @@
 import { ERR_NOT_IN_RANGE, HEAL, HEAL_POWER, RESOURCE_ENERGY } from "game/constants";
 import { Creep, RoomPosition, StructureContainer, StructureSpawn } from "game/prototypes";
 import { findClosestByPath, getObjectsByPrototype } from "game/utils";
-import { common } from "utils/common";
-import { GameState, RoleName } from "utils/types";
+import { common } from "../utils/common";
+import { GameState, RoleName } from "../utils/types";
 import { RoleCreep } from "./roles/roleCreep";
 import { CreepMoveState } from "./StateMachine/Creep/CreepMoveState";
 import { Task } from "./Task";

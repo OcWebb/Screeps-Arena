@@ -1,9 +1,9 @@
 import { IRoleCreep, RoleName } from "../../utils/types";
 import { OK, DirectionConstant } from "game/constants";
 import { Creep, RoomPosition } from "game/prototypes";
-import { common } from "utils/common";
-import { CreepStateMachine } from "arena_alpha_spawn_and_swamp/StateMachine/Creep/CreepStateMachine";
-import { SharedCostMatrix } from "arena_alpha_spawn_and_swamp/SharedCostMatrix";
+import { common } from "../../utils/common";
+import { CreepStateMachine } from "../StateMachine/Creep/CreepStateMachine";
+import { SharedCostMatrix } from "../SharedCostMatrix";
 
 export class RoleCreep implements IRoleCreep
 {

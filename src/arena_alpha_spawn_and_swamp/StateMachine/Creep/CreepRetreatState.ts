@@ -1,15 +1,12 @@
-import { RoleCreep } from "arena_alpha_spawn_and_swamp/roles/roleCreep";
-import { SharedCostMatrix } from "arena_alpha_spawn_and_swamp/SharedCostMatrix";
-import { Squad } from "arena_alpha_spawn_and_swamp/squads/squad";
-import { TightSquad } from "arena_alpha_spawn_and_swamp/squads/tightSquad";
+import { RoleCreep } from "../../roles/roleCreep";
+import { SharedCostMatrix } from "../../SharedCostMatrix";
 import { ATTACK, HEAL, HEAL_POWER, RANGED_ATTACK, RANGED_ATTACK_POWER } from "game/constants";
 import { CostMatrix, searchPath } from "game/path-finder";
 import { Creep, RoomPosition, StructureSpawn } from "game/prototypes";
 import { findClosestByPath, findInRange, getObjectsByPrototype, getRange } from "game/utils";
 import { Visual } from "game/visual";
-import { common } from "utils/common";
+import { common } from "../../../utils/common";
 import { IState } from "../IState";
-import { SquadStateMachine } from "../Squad/SquadStateMachine";
 import { CreepStateMachine } from "./CreepStateMachine";
 
 type retreatContext = { toSpawn: boolean | undefined };

@@ -1,5 +1,5 @@
-import { common } from "utils/common";
-import { RoleName } from "utils/types";
+import { common } from "../utils/common";
+import { RoleName } from "../utils/types";
 import { RoleCreep } from "./roles/roleCreep";
 import { Task } from "./Task";
 import { DefendSpawnTask } from "./DefendSpawnState";

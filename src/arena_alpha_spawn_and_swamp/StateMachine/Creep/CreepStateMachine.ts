@@ -1,4 +1,4 @@
-import { RoleCreep } from "arena_alpha_spawn_and_swamp/roles/roleCreep";
+import { RoleCreep } from "../../roles/roleCreep";
 import { StateMachine } from "../StateMachine";
 
 export class CreepStateMachine extends StateMachine

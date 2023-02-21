@@ -1,15 +1,14 @@
-import { RoleCreep } from "arena_alpha_spawn_and_swamp/roles/roleCreep";
-import { SharedCostMatrix } from "arena_alpha_spawn_and_swamp/SharedCostMatrix";
+import { RoleCreep } from "../../roles/roleCreep";
+import { SharedCostMatrix } from "../../SharedCostMatrix";
 import { CostMatrix, searchPath } from "game/path-finder";
 import { RoomPosition, StructureContainer } from "game/prototypes";
 import { getRange } from "game/utils";
 import { Visual } from "game/visual";
-import { common } from "utils/common";
 import { IState } from "../IState";
 import { CreepStateMachine } from "./CreepStateMachine";
 import { CreepMoveState } from "./CreepMoveState";
 import { ERR_NOT_IN_RANGE, RESOURCE_ENERGY } from "game/constants";
-import { findClosestByPath, findClosestByRange, getObjectsByPrototype } from "game";
+import { findClosestByPath, findClosestByRange, getObjectsByPrototype } from "game/utils";
 
 type fillContext = { energySource: RoomPosition}
 
@@ -29,10 +28,11 @@ export class CreepFillState implements IState
 
     run(): void
     {
+        if (this.context.energySource.x == undefined || this.context.energySource.y == undefined) { this.roleCreep.stateMachine.popState() }
         let container = findClosestByRange(this.context.energySource, getObjectsByPrototype(StructureContainer));
-        console.log(this.roleCreep.creep.store[RESOURCE_ENERGY] == this.roleCreep.creep.store.getCapacity())
-        console.log("energyStore " + this.roleCreep.creep.store[RESOURCE_ENERGY]);
-        if (this.roleCreep.creep.store[RESOURCE_ENERGY] == this.roleCreep.creep.store.getCapacity())
+        console.log(this.roleCreep.creep.store.getUsedCapacity(RESOURCE_ENERGY) == this.roleCreep.creep.store.getCapacity())
+        console.log("energyStore " + this.roleCreep.creep.store.getUsedCapacity(RESOURCE_ENERGY));
+        if (this.roleCreep.creep.store.getUsedCapacity(RESOURCE_ENERGY) == this.roleCreep.creep.store.getCapacity())
         {
             this.roleCreep.stateMachine.popState();
         } else {

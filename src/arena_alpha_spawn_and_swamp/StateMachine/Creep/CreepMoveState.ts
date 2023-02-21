@@ -1,10 +1,9 @@
-import { RoleCreep } from "arena_alpha_spawn_and_swamp/roles/roleCreep";
-import { SharedCostMatrix } from "arena_alpha_spawn_and_swamp/SharedCostMatrix";
+import { RoleCreep } from "../../roles/roleCreep";
+import { SharedCostMatrix } from "../../SharedCostMatrix";
 import { CostMatrix, searchPath } from "game/path-finder";
 import { RoomPosition } from "game/prototypes";
 import { getRange } from "game/utils";
 import { Visual } from "game/visual";
-import { common } from "utils/common";
 import { IState } from "../IState";
 import { CreepStateMachine } from "./CreepStateMachine";
 

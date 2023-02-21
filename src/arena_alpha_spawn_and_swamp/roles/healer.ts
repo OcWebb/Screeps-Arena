@@ -3,7 +3,7 @@ import { getObjectsByPrototype, findInRange, findClosestByPath } from "game/util
 import { ERR_NOT_IN_RANGE, RANGED_ATTACK, ATTACK, BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT, DirectionConstant, LEFT, OK, RIGHT, TOP, TOP_LEFT, TOP_RIGHT } from "game/constants"
 import { searchPath } from "game/path-finder"
 import { Visual } from "game/visual"
-import { common } from "utils/common";
+import { common } from "../../utils/common";
 import { RoleCreep } from "./roleCreep";
 
 export class Healer extends RoleCreep

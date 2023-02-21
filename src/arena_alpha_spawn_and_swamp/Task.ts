@@ -1,5 +1,5 @@
 import { Creep } from "game/prototypes";
-import { GameState, RoleName } from "utils/types";
+import { GameState, RoleName } from "../utils/types";
 import { RoleCreep } from "./roles/roleCreep";
 
 

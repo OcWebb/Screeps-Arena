@@ -1,13 +1,11 @@
 import { ATTACK, RANGED_ATTACK, RESOURCE_ENERGY, TERRAIN_WALL } from "game/constants";
 import { Creep, RoomPosition, StructureContainer, StructureSpawn } from "game/prototypes";
-import { findInRange, getCpuTime, getObjectsByPrototype, getRange } from "game/utils"
+import { findInRange, getCpuTime, getObjectsByPrototype, getRange, getTerrainAt, getTicks } from "game/utils"
 import { Transporter } from "./roles/transporter";
 import { RangedAttacker } from "./roles/rangedAttacker";
-import { common } from "utils/common";
+import { common } from "../utils/common";
 import { TaskManager } from "./TaskManager";
-import { Role } from "utils/types";
 import { SharedCostMatrix } from "./SharedCostMatrix";
-import { arenaInfo, getTerrainAt, getTicks } from "game";
 import { DefendTopLaneTask } from "./DefendTopLaneTask";
 import { DefendBottomLaneTask } from "./DefendBottomLaneTask";
 import { CreepMoveState } from "./StateMachine/Creep/CreepMoveState";
@@ -16,6 +14,7 @@ import { DefendSpawnTask } from "./DefendSpawnState";
 import { Visual } from "game/visual";
 import { EmptySpawnContainersTask } from "./EmptySpawnContainersTask";
 import { manageFobTask } from "./manageFobTask";
+import { Role } from "../utils/types";
 
 var spawn: StructureSpawn
 var enemySpawn: StructureSpawn;

@@ -1,12 +1,12 @@
 import { HEAL, HEAL_POWER } from "game/constants";
 import { Creep, StructureSpawn } from "game/prototypes";
 import { findClosestByPath, getObjectsByPrototype } from "game/utils";
-import { common } from "utils/common";
-import { GameState, RoleName } from "utils/types";
+import { common } from "../utils/common";
+import { GameState, RoleName } from "../utils/types";
 import { RoleCreep } from "./roles/roleCreep";
 import { CreepMoveState } from "./StateMachine/Creep/CreepMoveState";
 import { Task } from "./Task";
-import { findClosestByRange } from "game";
+import { findClosestByRange } from "game/utils";
 
 
 export class DefendTopLaneTask extends Task

@@ -3,10 +3,10 @@ import { getObjectsByPrototype, findClosestByPath, findInRange, getRange, findCl
 import { ERR_NOT_IN_RANGE, RANGED_ATTACK, ATTACK, HEAL, HEAL_POWER, RANGED_ATTACK_POWER } from "game/constants"
 import { searchPath } from "game/path-finder"
 import { Visual } from "game/visual"
-import { common } from "utils/common"
+import { common } from "../../utils/common"
 import { RoleCreep } from "./roleCreep";
-import { CreepMoveState } from "arena_alpha_spawn_and_swamp/StateMachine/Creep/CreepMoveState";
-import { CreepRetreatState } from "arena_alpha_spawn_and_swamp/StateMachine/Creep/CreepRetreatState";
+import { CreepMoveState } from "../StateMachine/Creep/CreepMoveState";
+import { CreepRetreatState } from "../StateMachine/Creep/CreepRetreatState";
 
 export class RangedAttacker extends RoleCreep
 {

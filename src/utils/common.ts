@@ -2,9 +2,7 @@ import { Healer } from "arena_alpha_spawn_and_swamp/roles/healer";
 import { MeleeAttacker } from "arena_alpha_spawn_and_swamp/roles/meleeAttacker";
 import { RangedAttacker } from "arena_alpha_spawn_and_swamp/roles/rangedAttacker";
 import { Transporter } from "arena_alpha_spawn_and_swamp/roles/transporter";
-import { Squad } from "arena_alpha_spawn_and_swamp/squads/squad";
 import { GameState, Role, RoleName } from "utils/types";
-import { getObjectsByPrototype, findInRange, getRange, findClosestByPath, getTerrainAt } from "game";
 import { ATTACK, ATTACK_POWER, BodyPartConstant, BODYPART_COST, BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT, CARRY, DirectionConstant, HEAL, HEAL_POWER, LEFT, MOVE, RANGED_ATTACK, RANGED_ATTACK_DISTANCE_RATE, RANGED_ATTACK_POWER, RESOURCE_ENERGY, RIGHT, TERRAIN_WALL, TOP, TOP_LEFT, TOP_RIGHT, TOUGH, WORK } from "game/constants";
 import { CostMatrix } from "game/path-finder";
 import { Creep, RoomPosition, StructureSpawn } from "game/prototypes";
@@ -12,6 +10,7 @@ import { Visual } from "game/visual";
 import { SharedCostMatrix } from "arena_alpha_spawn_and_swamp/SharedCostMatrix";
 import { RoleCreep } from "arena_alpha_spawn_and_swamp/roles/roleCreep";
 import { CreepMoveState } from "arena_alpha_spawn_and_swamp/StateMachine/Creep/CreepMoveState";
+import { getObjectsByPrototype, findInRange, getRange, findClosestByPath } from "game/utils";
 
 export const ROLE_PARTS: { [key in RoleName]: BodyPartConstant[] } =
 {
@@ -136,7 +135,7 @@ export var common =
         return body;
     },
 
-    spawnRoleCreep (role: RoleName, squad?: Squad): Role | undefined
+    spawnRoleCreep (role: RoleName): Role | undefined
     {
         let spawn = getObjectsByPrototype(StructureSpawn).filter(s => s.my)[0];
         let creepParts = common.getCreepParts(spawn.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0, ROLE_PARTS[role]);
@@ -149,17 +148,17 @@ export var common =
             {
                 case "TRANSPORTER":
                     let transporter = new Transporter(creep);
-                    if (squad) { squad.addCreep(transporter) }
+                    // if (squad) { squad.addCreep(transporter) }
                     return transporter;
 
                 case "MELEE_ATTACKER":
                     let meleeAttacker = new MeleeAttacker(creep);
-                    if (squad) { squad.addCreep(meleeAttacker) }
+                    // if (squad) { squad.addCreep(meleeAttacker) }
                     return meleeAttacker;
 
                 case "RANGED_ATTACKER":
                     let rangedAttacker = new RangedAttacker(creep);
-                    if (squad) { squad.addCreep(rangedAttacker) }
+                    // if (squad) { squad.addCreep(rangedAttacker) }
 
                     let xPosition = spawn.x > 50 ? spawn.x - 7 : spawn.x + 7;
                     // TODO: add position param to method so main.js logic can better dictate where to send them on spawning
@@ -174,7 +173,7 @@ export var common =
 
                 case "HEALER":
                     let healer = new Healer(creep);
-                    if (squad) { squad.addCreep(healer) }
+                    // if (squad) { squad.addCreep(healer) }
                     return healer;
             }
         }
