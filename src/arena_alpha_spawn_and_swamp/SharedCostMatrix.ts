@@ -1,7 +1,7 @@
 import { getObjectsByPrototype, getRange, getTerrainAt } from "game/utils";
-import { ATTACK, ATTACK_POWER, RANGED_ATTACK, RANGED_ATTACK_POWER, TERRAIN_SWAMP, TERRAIN_WALL } from "game/constants";
+import { ATTACK, ATTACK_POWER, RANGED_ATTACK, RANGED_ATTACK_POWER, TERRAIN_PLAIN, TERRAIN_SWAMP, TERRAIN_WALL } from "game/constants";
 import { CostMatrix } from "game/path-finder";
-import { Creep } from "game/prototypes";
+import { ConstructionSite, Creep, Structure } from "game/prototypes";
 
 export class SharedCostMatrix
 {
@@ -31,6 +31,44 @@ export class SharedCostMatrix
                 if (getTerrainAt({ x: x, y: y }) == TERRAIN_SWAMP)
                 {
                     SharedCostMatrix.set(x, y, 3);
+                }
+
+                if (getTerrainAt({ x: x, y: y }) == TERRAIN_PLAIN)
+                {
+                    SharedCostMatrix.set(x, y, 2);
+                }
+            }
+        }
+
+        var structures = getObjectsByPrototype(Structure);
+        for (var structure of structures)
+        {
+            SharedCostMatrix.set(structure.x, structure.y, 255);
+        }
+
+        var myConstructionSites = getObjectsByPrototype(ConstructionSite).filter(c => c.my);
+        for (var constructionSite of myConstructionSites)
+        {
+            SharedCostMatrix.set(constructionSite.x, constructionSite.y, 255);
+        }
+
+        var creeps = getObjectsByPrototype(Creep);
+        for (var creep of creeps)
+        {
+            SharedCostMatrix.set(creep.x, creep.y, 255);
+            if (creep.my)
+            {
+                for (let x = -1; x <= 1; x++)
+                {
+                    for (let y = -1; y <= 1; y++)
+                    {
+                        if (x == 0 && y == 0) { continue; }
+
+                        let xCurr = creep.x + x;
+                        let yCurr = creep.y + y;
+                        let newCost = SharedCostMatrix.get(creep.x, creep.y) - 1 < 0 ? 0 : SharedCostMatrix.get(creep.x, creep.y) - 1;
+                        SharedCostMatrix.set(creep.x, creep.y, newCost);
+                    }
                 }
             }
         }

@@ -1,5 +1,5 @@
-import { ATTACK, RANGED_ATTACK, RESOURCE_ENERGY, TERRAIN_WALL } from "game/constants";
-import { Creep, RoomPosition, StructureContainer, StructureSpawn } from "game/prototypes";
+import { ATTACK, CARRY, MOVE, RANGED_ATTACK, RESOURCE_ENERGY, TERRAIN_WALL, WORK } from "game/constants";
+import { Creep, RoomPosition, StructureContainer, StructureExtension, StructureSpawn } from "game/prototypes";
 import { findInRange, getCpuTime, getObjectsByPrototype, getRange, getTerrainAt, getTicks } from "game/utils"
 import { Transporter } from "./roles/transporter";
 import { RangedAttacker } from "./roles/rangedAttacker";
@@ -233,55 +233,56 @@ function manageSpawning()
     spawnContainers.forEach(container => energyReserves += container.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0);
 
     console.log(`Energy Reserves: ${energyReserves}`)
-
-    if (energyReserves < 3000)
+    let energyAvailable = (spawn.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0)
+    let myExtensions = getObjectsByPrototype(StructureExtension).filter(c => c.my);
+    for (let extension of myExtensions)
     {
-        if (transporters.length < 5)
-        {
-            if ((spawn.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0) >= 600)
-            {
-                let transporter = common.spawnRoleCreep("TRANSPORTER")
-                if (transporter)
-                {
-                    transporters.push(transporter as Transporter);
-                    roleCreeps.push(transporter);
-                }
-            }
-        }
-        else if ((spawn.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0) >= 900)
-        {
-            let role = common.spawnRoleCreep("RANGED_ATTACKER");
-            console.log("Role: " + role)
-            if (role)
-            {
-                roleCreeps.push(role);
-                let xVal = spawn.x < 50 ? 12 : 88;
-                let moveToSpawnState = new CreepMoveState(role, { position: { x: xVal, y: role.creep.y }, range: 3 });
-                role.stateMachine.pushState(moveToSpawnState);
-            }
-        }
-
-        return;
+        energyAvailable += extension.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0;
     }
+    console.log(`Energy Avail: ${energyAvailable}`)
 
-    if (transporters.length < 2 && (spawn.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0) >= 500)
+    if (transporters.length == 0 && energyAvailable >= 500)
     {
-        let transporter = common.spawnRoleCreep("TRANSPORTER")
+        let transporter = common.spawnRoleCreep("TRANSPORTER", [MOVE, CARRY, MOVE, MOVE, CARRY, MOVE, WORK, CARRY, MOVE])
         if (transporter)
         {
             transporters.push(transporter as Transporter);
             roleCreeps.push(transporter);
         }
     }
-    else if ((spawn.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0) >= 900)
+    else if (transporters.length < 2)
+    {
+        if (energyAvailable >= 1000)
+        {
+            let transporter = common.spawnRoleCreep("TRANSPORTER", [MOVE, CARRY, MOVE, MOVE, CARRY, MOVE, CARRY, MOVE, MOVE, CARRY, MOVE, MOVE, CARRY, MOVE, WORK, CARRY, MOVE, MOVE, MOVE])
+            if (transporter)
+            {
+                transporters.push(transporter as Transporter);
+                roleCreeps.push(transporter);
+            }
+        }
+    }
+    else if (energyAvailable >= 900)
     {
         let role = common.spawnRoleCreep("RANGED_ATTACKER");
         if (role)
         {
-            console.log("Role: " + role)
+            // console.log("Role: " + role)
             roleCreeps.push(role);
             let xVal = spawn.x < 50 ? 12 : 88;
-            let moveToSpawnState = new CreepMoveState(role, { position: { x: xVal, y: role.creep.y }, range: 3 });
+            let moveToSpawnState = new CreepMoveState(role, { position: { x: xVal, y: spawn.y }, range: 3 });
+            role.stateMachine.pushState(moveToSpawnState);
+        }
+    }
+    else if (energyAvailable >= 400 && energyReserves == 0)
+    {
+        let role = common.spawnRoleCreep("RANGED_ATTACKER", [MOVE, RANGED_ATTACK, MOVE, RANGED_ATTACK]);
+        if (role)
+        {
+            // console.log("Role: " + role)
+            roleCreeps.push(role);
+            let xVal = spawn.x < 50 ? 12 : 88;
+            let moveToSpawnState = new CreepMoveState(role, { position: { x: xVal, y: spawn.y }, range: 3 });
             role.stateMachine.pushState(moveToSpawnState);
         }
     }

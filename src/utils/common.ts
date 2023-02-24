@@ -5,7 +5,7 @@ import { Transporter } from "arena_alpha_spawn_and_swamp/roles/transporter";
 import { GameState, Role, RoleName } from "utils/types";
 import { ATTACK, ATTACK_POWER, BodyPartConstant, BODYPART_COST, BOTTOM, BOTTOM_LEFT, BOTTOM_RIGHT, CARRY, DirectionConstant, HEAL, HEAL_POWER, LEFT, MOVE, RANGED_ATTACK, RANGED_ATTACK_DISTANCE_RATE, RANGED_ATTACK_POWER, RESOURCE_ENERGY, RIGHT, TERRAIN_WALL, TOP, TOP_LEFT, TOP_RIGHT, TOUGH, WORK } from "game/constants";
 import { CostMatrix } from "game/path-finder";
-import { Creep, RoomPosition, StructureSpawn } from "game/prototypes";
+import { Creep, RoomPosition, StructureExtension, StructureSpawn } from "game/prototypes";
 import { Visual } from "game/visual";
 import { SharedCostMatrix } from "arena_alpha_spawn_and_swamp/SharedCostMatrix";
 import { RoleCreep } from "arena_alpha_spawn_and_swamp/roles/roleCreep";
@@ -16,14 +16,12 @@ export const ROLE_PARTS: { [key in RoleName]: BodyPartConstant[] } =
 {
     "TRANSPORTER": [WORK, CARRY, CARRY, MOVE, MOVE],
     "MELEE_ATTACKER": [ATTACK, MOVE, MOVE, MOVE, MOVE, MOVE],
-    "RANGED_ATTACKER": [ MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, HEAL, RANGED_ATTACK],
+    "RANGED_ATTACKER": [ MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, RANGED_ATTACK, MOVE, HEAL],
     "HEALER": [MOVE, MOVE, MOVE, MOVE, MOVE, HEAL],
 }
 
 export var common =
 {
-
-
     getPositionFromDirection(position: RoomPosition, direction: DirectionConstant)
     {
         let newPosition = { x: position.x, y: position.y }
@@ -113,7 +111,7 @@ export var common =
                 positionOne.y == positionTwo.y
     },
 
-    getCreepParts(maxEnergy: number, parts: BodyPartConstant[])
+    getCreepParts(maxEnergy: number, parts: BodyPartConstant[]): BodyPartConstant[]
     {
         let body: BodyPartConstant[] = [];
         let ratioCost = 0;
@@ -135,11 +133,17 @@ export var common =
         return body;
     },
 
-    spawnRoleCreep (role: RoleName): Role | undefined
+    spawnRoleCreep (role: RoleName, bodyParts?: BodyPartConstant[]): Role | undefined
     {
         let spawn = getObjectsByPrototype(StructureSpawn).filter(s => s.my)[0];
-        let creepParts = common.getCreepParts(spawn.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0, ROLE_PARTS[role]);
-        let spawnedCreep = spawn.spawnCreep(creepParts);
+        let energyAvailable = (spawn.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0)
+        let myExtensions = getObjectsByPrototype(StructureExtension).filter(c => c.my);
+        for (let extension of myExtensions)
+        {
+            energyAvailable += extension.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0;
+        }
+        let creepParts = common.getCreepParts(energyAvailable ?? 0, ROLE_PARTS[role]);
+        let spawnedCreep = spawn.spawnCreep(bodyParts ?? creepParts);
         let creep = spawnedCreep.object;
 
         if (!spawnedCreep.error && creep)

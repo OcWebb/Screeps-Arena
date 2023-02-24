@@ -2,7 +2,6 @@ import { common } from "../utils/common";
 import { RoleName } from "../utils/types";
 import { RoleCreep } from "./roles/roleCreep";
 import { Task } from "./Task";
-import { DefendSpawnTask } from "./DefendSpawnState";
 
 
 export class TaskManager
@@ -22,6 +21,7 @@ export class TaskManager
     {
         // this.manageCreepMemory();
         var gameState = common.getGameState();
+        this.removeDeadCreeps();
 
         for (let task of this.activeTasks)
         {
@@ -47,6 +47,7 @@ export class TaskManager
         for (let roleCreep of this.roleCreeps)
         {
             roleCreep.run();
+            // roleCreep.stateMachine.logState();
         }
     }
 
@@ -174,6 +175,26 @@ export class TaskManager
         if (roleCreep)
         {
             this.roleCreepsSpawning.push(roleCreep);
+        }
+    }
+
+    removeDeadCreeps()
+    {
+        for (let roleCreep of this.roleCreeps)
+        {
+            if (!roleCreep.creep.exists)
+            {
+                let taskAssigned = roleCreep.taskId;
+                if (taskAssigned > 0)
+                {
+                    let task = this.activeTasks.find(t => t.id == taskAssigned);
+                    if (task)
+                    {
+                        task.roleCreepsAssigned = task.roleCreepsAssigned.filter(r => r.creep.id != roleCreep.creep.id);
+                    }
+                }
+                this.roleCreeps = this.roleCreeps.filter(r => r.creep.id != roleCreep.creep.id);
+            }
         }
     }
 

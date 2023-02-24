@@ -22,16 +22,17 @@ export class StateMachine
 
     logState()
     {
+        let logString = "";
         if (this.stateQueue.length)
         {
             for (var state of this.stateQueue)
             {
                 // console.log(state.name)
-                console.log(`  ${state.seralize()}`);
+                logString += `${state.seralize()} | `;
             }
+            console.log(logString);
             console.log("\n");
         }
-        // console.log("empty")
     }
 
     pushState(state: IState)
@@ -47,6 +48,8 @@ export class StateMachine
         if (this.stateQueue.length)
         {
             this.currentState = this.stateQueue[0];
+        } else {
+            this.currentState = undefined;
         }
     }
 

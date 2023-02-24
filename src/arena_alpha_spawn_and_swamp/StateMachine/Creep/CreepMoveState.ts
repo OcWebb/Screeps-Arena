@@ -33,8 +33,6 @@ export class CreepMoveState implements IState
             if (ret.path.length)
             {
                 new Visual(10, false).poly(ret.path, {stroke: "#43c103"});
-                // let potentialDamageOnPath = common.potentialDamageInRange(ret.path[0]);
-                // let potentialDamageOnPath = common.potentialDamageInRange(ret.path[0]);
                 this.roleCreep.roleMoveTo(ret.path[0]);
             }
         }

@@ -3,6 +3,8 @@ import { Creep, StructureContainer, StructureSpawn, Id, RoomPosition } from "gam
 import { getObjectsByPrototype, findClosestByPath } from "game/utils"
 import { RESOURCE_ENERGY, ERR_NOT_IN_RANGE } from "game/constants"
 import { RoleCreep } from "./roleCreep";
+import { CreepRetreatState } from "../StateMachine/Creep/CreepRetreatState";
+import { common } from "../../utils/common";
 
 
 export class Transporter extends RoleCreep
@@ -22,6 +24,11 @@ export class Transporter extends RoleCreep
 
     run ()
     {
+        if (common.shouldRetreat(this.creep) && !(this.stateMachine.currentState instanceof CreepRetreatState))
+        {
+            let retreatSpawnState = new CreepRetreatState(this, { toSpawn: false});
+            this.stateMachine.pushState(retreatSpawnState);
+        }
         super.run();
     }
 

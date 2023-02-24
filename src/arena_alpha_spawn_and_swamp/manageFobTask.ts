@@ -6,7 +6,7 @@ import { GameState, RoleName } from "../utils/types";
 import { RoleCreep } from "./roles/roleCreep";
 import { CreepMoveState } from "./StateMachine/Creep/CreepMoveState";
 import { Task } from "./Task";
-import { CreepFillState } from "./StateMachine/Creep/CreepFillState";
+import { CreepGatherEnergyState } from "./StateMachine/Creep/CreepGatherEnergyState";
 
 
 export class manageFobTask extends Task
@@ -31,7 +31,7 @@ export class manageFobTask extends Task
         let extensions = findInRange(this.fobPosition, getObjectsByPrototype(StructureExtension).filter(e => e.my), 3);
         let constructionSites = findInRange(this.fobPosition, getObjectsByPrototype(ConstructionSite), 3);
 
-        if (extensions.length + constructionSites.length < 4)
+        if (extensions.length + constructionSites.length < 5)
         {
             let createdSites = 0;
             for (let x = -1; x <= 1; x++)
@@ -40,11 +40,9 @@ export class manageFobTask extends Task
                 {
                     let xCurr = this.fobPosition.x + x;
                     let yCurr = this.fobPosition.y + y;
-                    // console.log(xCurr + " ; " + yCurr);
-                    // console.log(extensions.some(e => e.x == xCurr && e.y == yCurr));
                     if (!extensions.some(e => e.x == xCurr && e.y == yCurr) && !(x==0 && y==0))
                     {
-                        if (extensions.length + constructionSites.length + createdSites >= 4) { break; }
+                        if (extensions.length + constructionSites.length + createdSites >= 5) { break; }
 
                         let res = createConstructionSite({ x: xCurr, y: yCurr }, StructureExtension);
                         if (res.error)
@@ -54,7 +52,6 @@ export class manageFobTask extends Task
                             createdSites++;
                         }
                         constructionSites = findInRange(this.fobPosition, getObjectsByPrototype(ConstructionSite), 3);
-                        console.log("Construction sites count: " + constructionSites.length);
                     }
                 }
             }
@@ -70,12 +67,27 @@ export class manageFobTask extends Task
                 console.log(roleCreep.creep.store.getUsedCapacity(RESOURCE_ENERGY));
                 if(roleCreep.creep.store.getUsedCapacity(RESOURCE_ENERGY) == 0)
                 {
-                    let moveState = new CreepFillState(roleCreep, { energySource: container });
+                    let moveState = new CreepGatherEnergyState(roleCreep, { energySource: container });
                     roleCreep.stateMachine.pushState(moveState);
                 }
                 else
                 {
-                    if (constructionSites.length)
+                    let notFullExtensions = extensions.filter(e => e != null && (e!?.store.getFreeCapacity(RESOURCE_ENERGY) ?? 0) > 0);
+
+                    if (extensions.length && notFullExtensions.length)
+                    {
+                        let notFullExtensions = extensions.filter(e => e != null && (e!?.store.getFreeCapacity(RESOURCE_ENERGY) ?? 0) > 0);
+                        if (notFullExtensions.length > 0){
+                            let closestExtension = findClosestByPath(roleCreep.creep, notFullExtensions);
+                            if(closestExtension != null && roleCreep.creep.transfer(closestExtension, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE)
+                            {
+                                let moveState = new CreepMoveState(roleCreep, { position: closestExtension, range: 1 });
+                                roleCreep.stateMachine.pushState(moveState);
+                            }
+
+                        }
+                    }
+                    else if (constructionSites.length)
                     {
                         let highestProgress = -1;
                         let highestBuildConstructionSite = constructionSites[0];
@@ -92,19 +104,6 @@ export class manageFobTask extends Task
                         {
                             let moveState = new CreepMoveState(roleCreep, { position: highestBuildConstructionSite, range: 1 });
                             roleCreep.stateMachine.pushState(moveState);
-                        }
-                    }
-                    else if (extensions.length)
-                    {
-                        let notFullExtensions = extensions.filter(e => e != null && (e!?.store.getFreeCapacity(RESOURCE_ENERGY) ?? 0) > 0);
-                        if (notFullExtensions.length > 0){
-                            let closestExtension = findClosestByPath(roleCreep.creep, notFullExtensions);
-                            if(closestExtension != null && roleCreep.creep.transfer(closestExtension, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE)
-                            {
-                                let moveState = new CreepMoveState(roleCreep, { position: closestExtension, range: 1 });
-                                roleCreep.stateMachine.pushState(moveState);
-                            }
-
                         }
                     }
                 }
