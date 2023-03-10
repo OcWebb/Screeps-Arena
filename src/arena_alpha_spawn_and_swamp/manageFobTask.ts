@@ -31,6 +31,7 @@ export class manageFobTask extends Task
         let extensions = findInRange(this.fobPosition, getObjectsByPrototype(StructureExtension).filter(e => e.my), 3);
         let constructionSites = findInRange(this.fobPosition, getObjectsByPrototype(ConstructionSite), 3);
 
+        
         if (extensions.length + constructionSites.length < 5)
         {
             let createdSites = 0;

@@ -15,6 +15,7 @@ import { Visual } from "game/visual";
 import { EmptySpawnContainersTask } from "./EmptySpawnContainersTask";
 import { manageFobTask } from "./manageFobTask";
 import { Role } from "../utils/types";
+import { TerrainCalculations } from "./TerrainCalculations";
 
 var spawn: StructureSpawn
 var enemySpawn: StructureSpawn;
@@ -36,13 +37,15 @@ export function loop()
     manageSpawning ();
 
     let visual = new Visual();
-    visual.rect(
-        { x: topHalfForwardBasePosition.x-0.5, y: topHalfForwardBasePosition.y-0.5 },
-        1, 1, { opacity: 0.8, fill: "#0cff00" })
+    // visual.rect(
+    //     { x: topHalfForwardBasePosition.x-0.5, y: topHalfForwardBasePosition.y-0.5 },
+    //     1, 1, { opacity: 0.8, fill: "#0cff00" })
 
-    visual.rect(
-        { x: bottomHalfForwardBasePosition.x-0.5, y: bottomHalfForwardBasePosition.y-0.5 }
-        , 1, 1, { opacity: 0.8, fill: "#0cff00" })
+    // visual.rect(
+    //     { x: bottomHalfForwardBasePosition.x-0.5, y: bottomHalfForwardBasePosition.y-0.5 }
+    //     , 1, 1, { opacity: 0.8, fill: "#0cff00" })
+
+    TerrainCalculations.show();
 
     let enemyAttackers = getObjectsByPrototype(Creep)
         .filter(creep => !creep.my && creep.exists && common.hasAttackParts(creep));
@@ -175,6 +178,7 @@ function initMemory()
         const spawnedLeftSide = spawn.x < 50 ? true : false;
         var topBaseX = 0;
         var bottomBaseX = 0;
+        TerrainCalculations.setChokePoints();
 
         if (spawnedLeftSide)
         {
